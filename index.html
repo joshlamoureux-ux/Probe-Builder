@@ -83,6 +83,9 @@ svg .ax line{stroke:var(--mute)}svg .ax text{font:11px Inter,sans-serif;fill:var
 svg .hot{stroke:var(--red)!important;stroke-opacity:1}svg text.hot{stroke:var(--bg)!important}svg .hot.ah,svg .hot.mvh,svg .hot.tp{fill:var(--red)!important}
 svg .hot.pt,svg .hot.hole,svg .hot.tol,svg .hot.ptb{stroke-width:3}svg text.hot{fill:var(--red);font-weight:600}
 svg g.hot line,svg g.hot rect,svg g.hot circle{stroke:var(--red)!important}svg .pr.hot rect,svg .pr.hot circle{fill:var(--red)}
+.toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:6px 6px 6px 16px;border-radius:6px;display:flex;gap:12px;align-items:center;z-index:20;max-width:calc(100vw - 32px);box-shadow:0 6px 20px rgb(0 0 0/.25)}
+.toast button{background:transparent;color:var(--bg);border-color:var(--bg)}
+.trash{margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)}.trash b{display:block;font-size:13px;font-weight:500;color:var(--mute);margin-bottom:4px}
 .empty{padding:22px;border:1px dashed var(--line);border-radius:6px;color:var(--mute)}
 .hide{display:none!important}
 @media(prefers-reduced-motion:no-preference){.flash{animation:fl .6s}@keyframes fl{from{background:var(--line)}}}
@@ -134,6 +137,7 @@ svg g.hot line,svg g.hot rect,svg g.hot circle{stroke:var(--red)!important}svg .
 <select id="addType" aria-label="Feature type" style="width:auto;flex:1 1 220px"></select>
 <button id="addBtn">Add feature</button>
 </div>
+<div class="trash hide" id="trashRow"><b>Recently deleted</b><div class="row"><select id="trashSel" aria-label="Recently deleted features" style="width:auto;flex:1 1 240px"></select><button class="q" id="restoreBtn">Restore</button><button class="q" id="clearTrash">Clear list</button></div></div>
 <p class="note" id="sampleNote">Sample job loaded so you can see the output. Use “New job” below to clear it.</p>
 </section>
 <section class="sec">
@@ -156,6 +160,7 @@ svg g.hot line,svg g.hot rect,svg g.hot circle{stroke:var(--red)!important}svg .
 <p class="note">Prove every new program out in D1 test mode on the machine. Probe cycles won't run with G68 rotation or mirror image active.</p>
 </aside>
 </main>
+<div class="toast hide" id="toast" role="status"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
 <script>
 {
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
@@ -184,11 +189,14 @@ const OPT={H:['h','Size tolerance H','± half band'],M:['m','True position M','Z
 const DEF_JOB={prog:'1000',name:'',units:'in',out:'main',tool:'T1',tc:true,pct:true,wcs:'G54',wcsP:'',safe:'2.',feed:'',mode:'',print:'none',rptVar:'156',rptId:'',flag:'off',act:'msg',rv:'700',cv:'701',nth:false,nthN:'5',nthV:'702',pics:true};
 let uid=1,S;
 const nf=(type,o)=>({id:uid++,type,name:'',upd:'none',s:'',ts:'',...o});
-function sample(){uid=1;const a=nf('bore',{name:'Main bore',x:'0',y:'0',mz:'-0.5',d:'1.0000',h:'0.0005',m:'0.002'}),b=nf('boss',{name:'Pilot boss',x:'3',y:'0',az:'0.2',mz:'-0.25',d:'1.5',r:'0.25',h:'0.001'}),c=nf('surf',{name:'Top face',ax:'Z',sx:'1.5',sy:'1.5',sz:'0.3',nom:'0',h:'0.002',s:''});
+function sample(){const a=nf('bore',{name:'Main bore',x:'0',y:'0',mz:'-0.5',d:'1.0000',h:'0.0005',m:'0.002'}),b=nf('boss',{name:'Pilot boss',x:'3',y:'0',az:'0.2',mz:'-0.25',d:'1.5',r:'0.25',h:'0.001'}),c=nf('surf',{name:'Top face',ax:'Z',sx:'1.5',sy:'1.5',sz:'0.3',nom:'0',h:'0.002',s:''});
  return {job:{...DEF_JOB,name:'SAMPLE HOUSING'},feats:[a,b,nf('f2f',{name:'Bore to boss',p1:String(a.id),mode:'X and Y',nx:'3',ny:'0',m:'0.002'}),c],sample:true}}
 try{S=JSON.parse(localStorage.getItem('ipb1'))}catch(e){}
 if(!S||!S.job)S=sample();else{S.job={...DEF_JOB,...S.job};uid=Math.max(0,...S.feats.map(f=>f.id))+1}
 const save=()=>{try{localStorage.setItem('ipb1',JSON.stringify(S))}catch(e){}};
+let TR=[];try{TR=JSON.parse(localStorage.getItem('ipb1-trash'))||[]}catch(e){}
+uid=Math.max(uid,...TR.map(x=>(x.f&&x.f.id||0)+1));
+const saveTR=()=>{try{localStorage.setItem('ipb1-trash',JSON.stringify(TR))}catch(e){}};
 
 $('#addType').innerHTML=Object.entries(T).map(([k,t])=>`<option value="${k}">${t.n} (P${t.c})</option>`).join('');
 
@@ -472,8 +480,8 @@ function gen(){
    case 'f2f':{const p=idx[f.p1],prev=feats[i-1];
     if(p===undefined)err(`${tag}: choose the P1 feature`);
     if(!prev||prev.type==='f2f'||prev.type==='surf2')err(`${tag}: must follow a single measuring feature (P2), not a feature-to-feature or two-surface check`);
-    if(p!==undefined&&feats[p].type==='surf2')err(`${tag}: a two-surface check can't be used as P1`);
     else if(['pocket','web'].includes(prev.type)||(p!==undefined&&['pocket','web'].includes(feats[p].type)))err(`${tag}: P9834 can't be used with the web/pocket cycle`);
+    if(p!==undefined&&feats[p].type==='surf2')err(`${tag}: a two-surface check can't be used as P1`);
     const md=f.mode||'X distance';
     if(md==='X distance'){need('nx','Nominal X');a.push(['X',f.nx])}
     else if(md==='Y distance'){need('ny','Nominal Y');a.push(['Y',f.ny])}
@@ -560,10 +568,24 @@ function hot(el){$$('svg .hot').forEach(e=>e.classList.remove('hot'));if(!el||!e
  keys.forEach(q=>c.querySelectorAll(`svg [data-d~="${q}"]`).forEach(e=>e.classList.add('hot')))}
 $('main').addEventListener('focusin',e=>hot(e.target));
 $('main').addEventListener('focusout',e=>{if(!e.relatedTarget||!e.relatedTarget.dataset||(!e.relatedTarget.dataset.k&&!e.relatedTarget.dataset.j))hot(null)});
+function toTrash(f,idx){TR.unshift({f:JSON.parse(JSON.stringify(f)),idx,at:Date.now(),job:S.job.prog||''});TR=TR.slice(0,20);saveTR()}
+function renderTrash(){$('#trashRow').classList.toggle('hide',!TR.length);
+ $('#trashSel').innerHTML=TR.map((x,k)=>{const t=T[x.f.type],tm=new Date(x.at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  return `<option value="${k}">${esc((t?t.n:x.f.type)+(x.f.name?' – '+x.f.name:''))} · was F${x.idx+1}${x.job?' in O'+esc(x.job):''} · ${tm}</option>`}).join('')}
+function restore(k){const x=TR.splice(k,1)[0];if(!x)return;const f=x.f;
+ if(S.feats.some(g=>g.id===f.id))f.id=uid++;else uid=Math.max(uid,f.id+1);
+ const at=Math.min(x.idx,S.feats.length);S.feats.splice(at,0,f);S.sample=false;saveTR();renderTrash();renderFeats();out();
+ const c=document.querySelector(`.feat[data-id="${f.id}"]`);if(c){c.classList.add('flash');c.scrollIntoView({block:'nearest',behavior:'smooth'})}}
+let toastT;function toast(msg,undo){$('#toastMsg').textContent=msg;const t=$('#toast');t.classList.remove('hide');
+ $('#toastUndo').onclick=()=>{t.classList.add('hide');clearTimeout(toastT);undo()};clearTimeout(toastT);toastT=setTimeout(()=>t.classList.add('hide'),8000)}
+function replaceJob(next,why){const prev=S,n=S.feats.length;for(let i=n-1;i>=0;i--)toTrash(S.feats[i],i);S=next;renderJob();renderFeats();renderTrash();out();
+ if(n)toast(`${why}: ${n} feature${n>1?'s':''} moved to Recently deleted`,()=>{TR.splice(0,n);saveTR();S=prev;uid=Math.max(uid,...S.feats.map(f=>f.id+1));renderJob();renderFeats();renderTrash();out()})}
+$('#restoreBtn').addEventListener('click',()=>restore(+$('#trashSel').value));
+$('#clearTrash').addEventListener('click',()=>{const old=TR;TR=[];saveTR();renderTrash();toast('Deleted list cleared',()=>{TR=old;saveTR();renderTrash()})});
 function refreshP1(){S.feats.forEach((f,i)=>{if(f.type!=='f2f')return;const sel=document.getElementById(`f${f.id}-p1`);if(!sel||sel===document.activeElement)return;
  sel.innerHTML='<option value="">Choose…</option>'+S.feats.slice(0,i-1).map((p,k)=>`<option value="${p.id}"${String(p.id)===String(f.p1)?' selected':''}>F${k+1} ${esc(p.name||T[p.type].n)}</option>`).join('')})}
 $('#feats').addEventListener('click',e=>{const b=e.target.closest('button[data-a]');if(!b)return;const id=+b.closest('.feat').dataset.id,i=S.feats.findIndex(f=>f.id===id),a=b.dataset.a;
- if(a==='del')S.feats.splice(i,1);
+ if(a==='del'){const f=S.feats[i];toTrash(f,i);S.feats.splice(i,1);renderTrash();toast(`Deleted F${i+1} ${T[f.type].n}${f.name?' – '+f.name:''}`,()=>restore(0))}
  if(a==='up'&&i>0)[S.feats[i-1],S.feats[i]]=[S.feats[i],S.feats[i-1]];
  if(a==='dn'&&i<S.feats.length-1)[S.feats[i+1],S.feats[i]]=[S.feats[i],S.feats[i+1]];
  if(a==='dup')S.feats.splice(i+1,0,{...S.feats[i],id:uid++,name:(S.feats[i].name||'')+(S.feats[i].name?' copy':'')});
@@ -571,13 +593,13 @@ $('#feats').addEventListener('click',e=>{const b=e.target.closest('button[data-a
  const c=document.querySelector(`.feat[data-id="${a==='dup'?S.feats[i+1].id:id}"]`);if(c&&a!=='del'){c.classList.add('flash');c.querySelector(`[data-a="${a}"]`)?.focus()}});
 $('#addBtn').addEventListener('click',()=>{const f=nf($('#addType').value,{});const t=T[f.type];for(const d of t.f)if(Array.isArray(d[4]))f[d[0]]=d[4][0];
  S.feats.push(f);S.sample=false;renderFeats();out();const c=document.querySelector(`.feat[data-id="${f.id}"]`);c.classList.add('flash');c.scrollIntoView({block:'nearest',behavior:'smooth'});c.querySelector('.grid input,.grid select')?.focus()});
-$('#newBtn').addEventListener('click',()=>{uid=1;S={job:{...DEF_JOB},feats:[]};renderJob();renderFeats();out()});
-$('#sampleBtn').addEventListener('click',()=>{S=sample();renderJob();renderFeats();out()});
+$('#newBtn').addEventListener('click',()=>replaceJob({job:{...DEF_JOB},feats:[]},'New job'));
+$('#sampleBtn').addEventListener('click',()=>replaceJob(sample(),'Sample loaded'));
 async function copyText(t,btn,label){try{await navigator.clipboard.writeText(t);btn.textContent='Copied'}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');btn.textContent='Copied'}catch(_){btn.textContent='Select and copy'}ta.remove()}setTimeout(()=>btn.textContent=label,1600)}
 $('#copyBtn').addEventListener('click',e=>copyText(last,e.currentTarget,'Copy program'));
 $('#expBtn').addEventListener('click',e=>{const t=JSON.stringify({job:S.job,feats:S.feats});$('#jobTxt').value=t;copyText(t,e.currentTarget,'Copy job text')});
-$('#impBtn').addEventListener('click',e=>{try{const d=JSON.parse($('#jobTxt').value);if(!d.job||!Array.isArray(d.feats))throw 0;S={job:{...DEF_JOB,...d.job},feats:d.feats};uid=Math.max(0,...S.feats.map(f=>f.id))+1;renderJob();renderFeats();out();e.currentTarget.textContent='Imported'}catch(_){e.currentTarget.textContent='Not valid job text'}setTimeout(()=>e.target.textContent='Import',1800)});
-renderJob();renderFeats();out();
+$('#impBtn').addEventListener('click',e=>{try{const d=JSON.parse($('#jobTxt').value);if(!d.job||!Array.isArray(d.feats))throw 0;replaceJob({job:{...DEF_JOB,...d.job},feats:d.feats},'Job imported');uid=Math.max(uid,...S.feats.map(f=>f.id+1));e.currentTarget.textContent='Imported'}catch(_){e.currentTarget.textContent='Not valid job text'}setTimeout(()=>e.target.textContent='Import',1800)});
+renderJob();renderFeats();renderTrash();out();
 }
 </script>
 <script>try{if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}</script>
