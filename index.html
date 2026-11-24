@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inspection Plus builder</title>
+<meta name="theme-color" content="#2e6f8e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Probe Builder">
+
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: shop-floor tool, exact and calm, like a good setup sheet
+   IDEA: a setup sheet on the left, the control's program listing on the right
+   PICTURE: the live EIA listing itself, large, updating as you type
+   COLOUR and TYPE: white sheet, ink, slate for actions, red only for the tab and errors; Source Serif title, Inter, Plex Mono listing
+   LAYOUT: two columns above 980px with the listing sticky; stacked below */
+:root{color-scheme:light dark;--bg:light-dark(#fff,#10191e);--ink:light-dark(#121212,#e7eef1);--mute:light-dark(#5b6670,#93a3ad);--panel:light-dark(#e3ecf0,#18252c);--line:light-dark(#c9d6dc,#2b3b44);--slate:light-dark(#2e6f8e,#7cb8d4);--red:light-dark(#e3120b,#ff6a5f);--warn:light-dark(#8a5a00,#e8b44f);--field:light-dark(#fff,#0f1a20)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(20px,3vw,40px) max(4vw,16px)}
+header .tab{display:inline-block;background:var(--red);color:#fff;font-weight:600;font-size:13px;padding:4px 10px;margin-bottom:14px}
+h1{font:600 clamp(30px,4vw,44px)/1.05 "Source Serif 4",Georgia,serif;margin:0 0 8px;text-wrap:balance}
+header p{margin:0;max-width:70ch;color:var(--mute)}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;max-width:1500px;padding-top:0}
+@media(max-width:980px){.wrap{grid-template-columns:minmax(0,1fr)}}
+h2{font:600 20px/1.2 "Source Serif 4",Georgia,serif;margin:0 0 12px;padding-top:14px;border-top:2px solid var(--ink)}
+.sec{margin-bottom:26px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 12px}
+.fld{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--mute)}
+.fld b{font-weight:500;color:var(--ink)}
+.fld i{font-style:normal;font-size:13px}
+input,select{font:16px Inter,sans-serif;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:4px;min-height:44px;padding:8px 10px;width:100%}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible,textarea:focus-visible{outline:3px solid var(--slate);outline-offset:1px}
+.chk{flex-direction:row;align-items:center;gap:8px;min-height:44px}.chk input{width:22px;min-height:22px}
+button{font:500 15px Inter,sans-serif;min-height:44px;padding:8px 14px;border-radius:4px;border:1px solid var(--slate);background:var(--slate);color:var(--bg);cursor:pointer}
+button.q{background:transparent;color:var(--slate)}
+button.ic{min-width:44px;padding:8px;background:transparent;color:var(--ink);border-color:var(--line)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.feat{border:1px solid var(--line);border-radius:6px;padding:14px;margin-bottom:12px;background:var(--bg)}
+.fh{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.fh .no{font:600 15px "IBM Plex Mono",monospace;background:var(--panel);padding:8px 10px;border-radius:4px}
+.fh .ty{font-weight:600}.fh .cy{font:13px "IBM Plex Mono",monospace;color:var(--mute)}
+.fh .nm{flex:1 1 160px}
+.fh .sp{flex:1}
+details{margin-top:10px}summary{cursor:pointer;color:var(--slate);font-weight:500;min-height:32px}
+details .grid{margin-top:8px}
+.out{position:sticky;top:12px;align-self:start}
+@media(max-width:980px){.out{position:static}}
+.listing{background:var(--panel);border-radius:6px;overflow:hidden}
+.lh{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
+.lh strong{font:600 17px "IBM Plex Mono",monospace}
+.lh span{color:var(--mute);font-size:13px}
+pre{margin:0;padding:14px;max-height:calc(100vh - 230px);min-height:340px;overflow:auto;font:14px/1.6 "IBM Plex Mono",monospace;white-space:pre;tab-size:2}
+pre .c{color:var(--mute)}pre .k{color:var(--slate);font-weight:600}pre .x{color:var(--red);font-weight:600}
+@media(max-width:980px){pre{max-height:70vh}}
+.msgs{list-style:none;margin:0 0 12px;padding:0;font-size:14px}
+.msgs li{padding:6px 10px;border-left:3px solid;margin-bottom:4px;background:var(--panel)}
+.msgs .err{border-color:var(--red)}.msgs .warn{border-color:var(--warn)}.msgs .ok{border-color:var(--slate)}
+.msgs b{font-weight:600}
+.note{font-size:13px;color:var(--mute);margin:8px 0 0}
+textarea{width:100%;min-height:120px;font:13px "IBM Plex Mono",monospace;background:var(--field);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:8px}
+.dia{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin:0 0 12px}
+.dia figure{margin:0}.dia figcaption{font-size:13px;color:var(--mute);margin-bottom:3px}
+.dia svg{display:block;width:100%;height:auto;background:var(--bg);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.tolp{margin-top:10px}
+svg .pt{fill:var(--panel);stroke:var(--ink);stroke-width:1.5}svg .base{fill-opacity:.45;stroke-dasharray:5 4}
+svg .ptb{fill:var(--panel);stroke:var(--ink);stroke-width:1.5}
+svg .hole{fill:var(--bg);stroke:var(--ink);stroke-width:1.5}svg .stk{fill:var(--warn);fill-opacity:.35;stroke:var(--warn)}
+svg .pr line{stroke:var(--slate);stroke-width:3}svg .pr rect,svg .pr circle{fill:var(--slate);stroke:var(--slate)}
+svg .gh line,svg .gh rect,svg .gh circle,svg circle.gh{fill:none;stroke:var(--slate);stroke-width:1.5;stroke-dasharray:3 3}
+svg .mv,svg .pth{stroke:var(--slate);stroke-width:1.5}svg .pth{stroke-dasharray:3 3}svg .mvh{fill:var(--slate)}
+svg .dl{stroke:var(--mute);stroke-width:1.2}svg .ah{fill:var(--mute)}
+svg .hz{stroke:var(--mute);stroke-width:1;stroke-dasharray:6 4}svg .sz{stroke:var(--mute);stroke-width:1;stroke-dasharray:2 4}
+svg .nm{stroke:var(--ink);stroke-width:1.2;stroke-dasharray:8 4}svg .ref{stroke:var(--mute);stroke-dasharray:2 3}
+svg .pcd{fill:none;stroke:var(--mute);stroke-dasharray:6 4}svg .cx{stroke:var(--ink);stroke-width:1.5}
+svg .tp{fill:var(--slate)}svg .fc{stroke:var(--slate);stroke-width:5}
+svg .tol{fill:var(--slate);fill-opacity:.18;stroke:var(--slate)}svg .lim{stroke:var(--red);stroke-width:2}
+svg .tl{font:12px Inter,sans-serif;fill:var(--ink);paint-order:stroke;stroke:var(--bg);stroke-width:3px;stroke-linejoin:round}
+svg .ax line{stroke:var(--mute)}svg .ax text{font:11px Inter,sans-serif;fill:var(--mute)}
+svg .hot{stroke:var(--red)!important;stroke-opacity:1}svg text.hot{stroke:var(--bg)!important}svg .hot.ah,svg .hot.mvh,svg .hot.tp{fill:var(--red)!important}
+svg .hot.pt,svg .hot.hole,svg .hot.tol,svg .hot.ptb{stroke-width:3}svg text.hot{fill:var(--red);font-weight:600}
+svg g.hot line,svg g.hot rect,svg g.hot circle{stroke:var(--red)!important}svg .pr.hot rect,svg .pr.hot circle{fill:var(--red)}
+.empty{padding:22px;border:1px dashed var(--line);border-radius:6px;color:var(--mute)}
+.hide{display:none!important}
+@media(prefers-reduced-motion:no-preference){.flash{animation:fl .6s}@keyframes fl{from{background:var(--line)}}}
+</style></head><body>
+<header class="band">
+<span class="tab">Renishaw Inspection Plus · Mazak Smooth</span>
+<h1>Probe program builder</h1>
+<p>Fill in the job and the features to check. The EIA program on the right is written from the cycle formats in manual H-2000-6903 (rev 05-A). Inputs are in machine units; Mazatrol tool data is assumed.</p>
+</header>
+<main class="band wrap">
+<div>
+<section class="sec">
+<h2>Job</h2>
+<div class="grid">
+<label class="fld"><b>Program number</b><input data-j="prog" inputmode="numeric"></label>
+<label class="fld"><b>Part / comment</b><input data-j="name"></label>
+<label class="fld"><b>Units</b><select data-j="units"><option value="in">Inch (G20)</option><option value="mm">Metric (G21)</option></select></label>
+<label class="fld"><b>Program type</b><select data-j="out"><option value="main">Standalone (M30)</option><option value="sub">Subprogram (M99)</option></select></label>
+<label class="fld"><b>Probe tool call</b><input data-j="tool" placeholder="T20 or T20.1"><i>Exactly as your tool changes are written</i></label>
+<label class="fld chk"><input type="checkbox" data-j="tc"><b>Include tool change</b></label>
+<label class="fld"><b>Positioning work offset</b><select data-j="wcs"><option>G54</option><option>G55</option><option>G56</option><option>G57</option><option>G58</option><option>G59</option><option value="G54.1">G54.1 Pn</option><option value="none">None (active WPC)</option></select></label>
+<label class="fld" id="wcsPw"><b>G54.1 P number</b><input data-j="wcsP" inputmode="numeric"></label>
+<label class="fld"><b>Safe Z</b><input data-j="safe" inputmode="decimal"><i>Absolute, clear of everything</i></label>
+<label class="fld"><b>Protected move feed F</b><input data-j="feed" inputmode="decimal" placeholder="blank = optimised"></label>
+<label class="fld"><b>Probe mode</b><select data-j="mode"><option value="">Protected (default)</option><option value="1">D1 test mode (prove-out)</option><option value="2">D2 production (unprotected)</option></select></label>
+<label class="fld"><b>Results output</b><select data-j="print"><option value="none">None</option><option value="text">Text print (W1. / W2.)</option><option value="rpt">Reporter app (W .1)</option></select></label>
+<label class="fld" id="rptVw"><b>Reporter Part ID variable</b><input data-j="rptVar" inputmode="numeric"></label>
+<label class="fld" id="rptIw"><b>Part ID</b><input data-j="rptId" inputmode="numeric" placeholder="program number"></label>
+<label class="fld chk"><input type="checkbox" data-j="pct"><b>Wrap with %</b></label>
+<label class="fld chk"><input type="checkbox" data-j="pics"><b>Show pictures</b></label>
+</div>
+</section>
+<section class="sec">
+<h2>Out of tolerance</h2>
+<div class="grid">
+<label class="fld"><b>Control mode</b><select data-j="flag"><option value="off">Alarm mode (default)</option><option value="on">Flag-only (O9700 #31)</option></select></label>
+<label class="fld fo"><b>On a bad feature</b><select data-j="act"><option value="msg">Retract, then message stop (#3006)</option><option value="alarm">Retract, then alarm (#3000)</option><option value="end">Count it, stop at end of program</option></select></label>
+<label class="fld fo"><b>Result variable</b><input data-j="rv" inputmode="numeric"><i>Holds #148 while retracting</i></label>
+<label class="fld fo" id="cvw"><b>Fail counter variable</b><input data-j="cv" inputmode="numeric"></label>
+<label class="fld chk"><input type="checkbox" data-j="nth"><b>Only inspect every nth part</b></label>
+<label class="fld nt"><b>Every n parts</b><input data-j="nthN" inputmode="numeric"></label>
+<label class="fld nt"><b>Counter variable</b><input data-j="nthV" inputmode="numeric"></label>
+</div>
+</section>
+<section class="sec">
+<h2>Features</h2>
+<div id="feats"></div>
+<div class="row" style="margin-top:4px">
+<select id="addType" aria-label="Feature type" style="width:auto;flex:1 1 220px"></select>
+<button id="addBtn">Add feature</button>
+</div>
+<p class="note" id="sampleNote">Sample job loaded so you can see the output. Use “New job” below to clear it.</p>
+</section>
+<section class="sec">
+<h2>Save and reuse</h2>
+<div class="row"><button class="q" id="newBtn">New job</button><button class="q" id="sampleBtn">Load sample</button></div>
+<details><summary>Export or import this job</summary>
+<p class="note">Copy the text to keep a job (for example with the part's setup sheet). Paste one back and press Import.</p>
+<textarea id="jobTxt" aria-label="Job data"></textarea>
+<div class="row" style="margin-top:8px"><button class="q" id="expBtn">Copy job text</button><button class="q" id="impBtn">Import</button></div>
+</details>
+<p class="note">The page remembers your last job in this browser.</p>
+</section>
+</div>
+<aside class="out">
+<ul class="msgs" id="msgs"></ul>
+<div class="listing">
+<div class="lh"><div><strong id="oname">O1000</strong> <span id="ocount"></span></div><button id="copyBtn">Copy program</button></div>
+<pre id="code" aria-label="Generated program"></pre>
+</div>
+<p class="note">Prove every new program out in D1 test mode on the machine. Probe cycles won't run with G68 rotation or mirror image active.</p>
+</aside>
+</main>
+<script>
+{
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const SUF='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const AX2=['X','Y'],AX3=['X','Y','Z'];
+// [key,label,required,hint,options]
+const T={
+bore:{n:'Bore',c:'9814',f:[['x','Centre X',1],['y','Centre Y',1],['mz','Measure Z',1,'Probe moves into the bore to here'],['d','Diameter',1],['r','Fast pre-position R+',0,'Optional']],o:'HMUTSQEW'},
+boss:{n:'Boss',c:'9814',f:[['x','Centre X',1],['y','Centre Y',1],['az','Start Z above top',1],['mz','Measure Z',1],['d','Diameter',1],['r','Radial clearance R',0,'Blank = 0.2 in / 5 mm']],o:'HMUTSQEW'},
+pocket:{n:'Pocket / slot width',c:'9812',f:[['ax','Measure across',1,'',AX2],['x','Centre X',1],['y','Centre Y',1],['mz','Measure Z',1],['w','Width',1],['r','Fast pre-position R+',0,'Optional']],o:'HMUTSQEW'},
+web:{n:'Web width',c:'9812',f:[['ax','Measure across',1,'',AX2],['x','Centre X',1],['y','Centre Y',1],['az','Start Z above top',1],['mz','Measure Z',1],['w','Width',1],['r','Radial clearance R',0]],o:'HMUTSQEW'},
+surf:{n:'Single surface',c:'9811',f:[['ax','Surface axis',1,'',AX3],['sx','Start X',1],['sy','Start Y',1],['sz','Start Z',1],['nom','Nominal surface',1]],o:'HMUTSQEW'},
+icorner:{n:'Internal corner',c:'9815',f:[['sx','Start X',1],['sy','Start Y',1],['sz','Start Z',1],['cx','Corner X',1],['cy','Corner Y',1],['i','Second point step I',0,'I and J: non-90° corner'],['j','Second point step J',0],['z','Measure Z',0,'Pre-position over clamps']],o:'BMUSQW'},
+ecorner:{n:'External corner',c:'9816',f:[['sx','Start X',1],['sy','Start Y',1],['sz','Start Z',1],['cx','Corner X',1],['cy','Corner Y',1],['i','Second point step I',0,'I and J: non-90° corner'],['j','Second point step J',0],['z','Measure Z',0,'Pre-position over clamps']],o:'BMUSQW'},
+irect:{n:'Rectangle, internal',c:'9817',f:[['x','Centre X',1],['y','Centre Y',1],['mz','Measure Z',1],['dx','Length in X (D)',1],['ey','Length in Y (E)',1],['face','Face for 2 points',0,'',['','A11 right','A12 top','A13 left','A14 bottom']]],o:'BMUSQRW'},
+erect:{n:'Rectangle, external',c:'9817',f:[['x','Centre X',1],['y','Centre Y',1],['az','Start Z above top',1],['mz','Measure Z',1],['dx','Length in X (D)',1],['ey','Length in Y (E)',1],['face','Face for 2 points',0,'',['','A11 right','A12 top','A13 left','A14 bottom']],['r','Radial clearance R',0]],o:'BMUSQW'},
+pcd:{n:'Holes / bosses on a PCD',c:'9819',f:[['kind','Feature',1,'',['Bore','Boss']],['x','PCD centre X',1],['y','PCD centre Y',1],['az','Start Z above part',1],['mz','Measure Z',1],['c','PCD',1],['d','Feature diameter',1],['nb','Number of features',1],['a','First feature angle',0,'From X+, default 0°'],['r','Radial clearance R',0]],o:'HMQW'},
+p3:{n:'3-point bore / boss',c:'9823',f:[['kind','Feature',1,'',['Bore','Boss']],['x','Centre X',1],['y','Centre Y',1],['az','Start Z',1,'Bore: measure height. Boss: above top'],['mz','Measure Z (boss)',0],['a1','Angle 1',1],['a2','Angle 2',1],['a3','Angle 3',1],['d','Diameter',1],['r','Clearance / pre-position R',0]],o:'HMUTSQE'},
+stock:{n:'Stock allowance',c:'9820',f:[['ax','Surface axis',1,'',AX3],['sx','P1 X',1],['sy','P1 Y',1],['sz','P1 Z (start)',1],['nom','Nominal surface',1],['pts','Extra points P2–P6',0,'Other two axes: a,b; a,b']],o:'USQ'},
+angle:{n:'Surface angle in XY',c:'9843',f:[['ax','Measure in',1,'',AX2],['sx','Start X',1],['sy','Start Y',1],['sz','Start Z',1],['mid','Surface mid-point',1,'X or Y position'],['d','Spacing D',1],['a','Nominal angle',0,'From X+; default 90° (X) / 0° (Y)'],['z','Measure Z',0]],o:'BQW'},
+f2f:{n:'Feature to feature',c:'9834',f:[['p1','P1 feature',1,'P2 = the feature just above','P1'],['mode','Check',1,'',['X distance','Y distance','X and Y','Angle and distance','Z distance']],['nx','Nominal X',0],['ny','Nominal Y',0],['nz','Nominal Z',0],['na','Nominal angle',0],['nd','Min distance',0]],o:'HMBUW'}
+};
+const OPT={H:['h','Size tolerance H','± half band'],M:['m','True position M','Zone dia, matches drawing'],U:['u','Upper limit U','No update, stops if past'],B:['b','Angle tolerance B','± degrees'],Q:['q','Overtravel Q','Blank = default'],E:['ee','Experience var E','e.g. 625 → #625']};
+const DEF_JOB={prog:'1000',name:'',units:'in',out:'main',tool:'T1',tc:true,pct:true,wcs:'G54',wcsP:'',safe:'2.',feed:'',mode:'',print:'none',rptVar:'156',rptId:'',flag:'off',act:'msg',rv:'700',cv:'701',nth:false,nthN:'5',nthV:'702',pics:true};
+let uid=1,S;
+const nf=(type,o)=>({id:uid++,type,name:'',upd:'none',s:'',ts:'',...o});
+function sample(){uid=1;const a=nf('bore',{name:'Main bore',x:'0',y:'0',mz:'-0.5',d:'1.0000',h:'0.0005',m:'0.002'}),b=nf('boss',{name:'Pilot boss',x:'3',y:'0',az:'0.2',mz:'-0.25',d:'1.5',r:'0.25',h:'0.001'}),c=nf('surf',{name:'Top face',ax:'Z',sx:'1.5',sy:'1.5',sz:'0.3',nom:'0',h:'0.002',s:''});
+ return {job:{...DEF_JOB,name:'SAMPLE HOUSING'},feats:[a,b,nf('f2f',{name:'Bore to boss',p1:String(a.id),mode:'X and Y',nx:'3',ny:'0',m:'0.002'}),c],sample:true}}
+try{S=JSON.parse(localStorage.getItem('ipb1'))}catch(e){}
+if(!S||!S.job)S=sample();else{S.job={...DEF_JOB,...S.job};uid=Math.max(0,...S.feats.map(f=>f.id))+1}
+const save=()=>{try{localStorage.setItem('ipb1',JSON.stringify(S))}catch(e){}};
+
+$('#addType').innerHTML=Object.entries(T).map(([k,t])=>`<option value="${k}">${t.n} (P${t.c})</option>`).join('');
+
+function field(f,[k,l,req,hint,opts],i){
+ const v=f[k]??'',id=`f${f.id}-${k}`;
+ if(opts==='P1'){const prev=S.feats.slice(0,i-1);return `<label class="fld" for="${id}"><b>${l}</b><select id="${id}" data-k="${k}"><option value="">Choose…</option>${prev.map((p,j)=>`<option value="${p.id}"${String(p.id)===String(v)?' selected':''}>F${j+1} ${esc(p.name||T[p.type].n)}</option>`).join('')}</select><i>${hint}</i></label>`}
+ if(opts)return `<label class="fld" for="${id}"><b>${l}</b><select id="${id}" data-k="${k}">${opts.map(o=>`<option${o===v?' selected':''}>${o}</option>`).join('')}</select>${hint?`<i>${hint}</i>`:''}</label>`;
+ return `<label class="fld" for="${id}"><b>${l}${req?'':''}</b><input id="${id}" data-k="${k}" inputmode="decimal" value="${esc(v)}">${hint?`<i>${hint}</i>`:''}</label>`;
+}
+function optBlock(f){
+ const t=T[f.type],o=t.o,h=[];
+ for(const L of 'HMUBQE')if(o.includes(L))h.push(field(f,[OPT[L][0],OPT[L][1],0,OPT[L][2]]));
+ if(o.includes('S'))h.push(field(f,['s','Update work offset S',0,'',['','G54','G55','G56','G57','G58','G59','G54.1 Pn','Active Mazatrol WPC (S7)','External (S0)']]),f.s==='G54.1 Pn'?field(f,['sp','G54.1 P number',1]):'');
+ if(o.includes('T')){h.push(field(f,['upd','Tool offset update',0,'',['none','Direct (T input)','SPC average (P9835)']]));
+  if(f.upd!=='none'){h.push(field(f,['tn','Tool number',1]),field(f,['ts','Suffix',0,'Tool data letter',['',...SUF]]),
+   `<label class="fld chk"><input type="checkbox" data-k="th" ${f.th?'checked':''}><b>Heavy tool</b></label>`,field(f,['ff','Feedback F',0,'0–1, blank = 1']));
+   if(f.upd==='Direct (T input)')h.push(field(f,['vv','Null band V',0,'No update inside ±V']));
+   else h.push(field(f,['spm','SPC variable pair M',1,'Uses #m and #m+1']),field(f,['spv','Control limit V',0]),field(f,['spc','Out-of-limit count C',0,'Blank = 3']));}}
+ const open=['h','m','u','b','q','ee','s','sp'].some(k=>f[k])||f.upd!=='none';
+ return h.length?`<details${open?' open':''}><summary>Tolerances and updates</summary>${S.job.pics?tolPic(f,o):''}<div class="grid">${h.join('')}</div></details>`:'';
+}
+// ---------- pictures ----------
+const has_=v=>v!==undefined&&v!==null&&String(v).trim()!=='';
+const vl=(f,k)=>has_(f[k])?' = '+f[k]:'';
+const vl2=(f,a,b)=>has_(f[a])||has_(f[b])?` = ${has_(f[a])?f[a]:'?'}, ${has_(f[b])?f[b]:'?'}`:'';
+function SV(title,flip){
+ const o=[],m=flip?(x,y)=>[y+23,x-23]:(x,y)=>[x,y],A=d=>d?` data-d="${d}"`:'';
+ const k={
+  rect(x,y,w,h,c,d){const [a,b]=m(x,y),[e,g]=m(x+w,y+h);o.push(`<rect class="${c}"${A(d)} x="${Math.min(a,e)}" y="${Math.min(b,g)}" width="${Math.abs(e-a)}" height="${Math.abs(g-b)}"/>`);return k},
+  circ(x,y,r,c,d){const [a,b]=m(x,y);o.push(`<circle class="${c}"${A(d)} cx="${a}" cy="${b}" r="${r}"/>`);return k},
+  ln(x1,y1,x2,y2,c,d){const [a,b]=m(x1,y1),[e,g]=m(x2,y2);o.push(`<line class="${c}"${A(d)} x1="${a}" y1="${b}" x2="${e}" y2="${g}"/>`);return k},
+  poly(p,c,d){o.push(`<polygon class="${c}"${A(d)} points="${p.map(q=>m(...q).join(',')).join(' ')}"/>`);return k},
+  head(x1,y1,x2,y2,c,d){const [a,b]=m(x1,y1),[e,g]=m(x2,y2),an=Math.atan2(g-b,e-a),s=7;
+   o.push(`<polygon class="${c}"${A(d)} points="${e},${g} ${e-s*Math.cos(an-.42)},${g-s*Math.sin(an-.42)} ${e-s*Math.cos(an+.42)},${g-s*Math.sin(an+.42)}"/>`);return k},
+  mv(x1,y1,x2,y2,d){k.ln(x1,y1,x2,y2,'mv',d);return k.head(x1,y1,x2,y2,'mvh',d)},
+  dim(x1,y1,x2,y2,s,tx,ty,d,an='middle',rot=0){k.ln(x1,y1,x2,y2,'dl',d).head(x1,y1,x2,y2,'ah',d).head(x2,y2,x1,y1,'ah',d);return k.txt(tx,ty,s,d,an,rot)},
+  txt(x,y,s,d,an='start',rot=0,raw){const [a,b]=raw?[x,y]:m(x,y);o.push(`<text class="tl"${A(d)} x="${a}" y="${b}" text-anchor="${an}"${rot?` transform="rotate(${rot} ${a} ${b})"`:''}>${esc(s)}</text>`);return k},
+  hz(y,s,d,cls='hz'){o.push(`<line class="${cls}"${A(d)} x1="6" y1="${y}" x2="254" y2="${y}"/>`);return k.txt(8,y-5,s,d,'start',0,1)},
+  cross(x,y,d){k.ln(x-9,y,x+9,y,'cx',d);return k.ln(x,y-9,x,y+9,'cx',d)},
+  dot(x,y,c='tp',d){return k.circ(x,y,4,c,d)},
+  probe(x,y,d,ghost){const c=ghost?'gh':'pr';o.push(`<g class="${c}"${A(d)}><line x1="${x}" y1="${y-6}" x2="${x}" y2="${y-44}"/><rect x="${x-9}" y="${y-76}" width="18" height="32" rx="3"/><circle cx="${x}" cy="${y}" r="6"/></g>`);return k},
+  safe(){const v=S.job.safe;return k.hz(24,'Safe Z'+(has_(v)?' = '+v:''),'safe','sz')},
+  axes(){o.push(`<g class="ax"><line x1="12" y1="218" x2="34" y2="218"/><line x1="12" y1="218" x2="12" y2="196"/><text x="37" y="222">X+</text><text x="6" y="192">Y+</text></g>`);return k},
+  axesZ(){o.push(`<g class="ax"><line x1="12" y1="218" x2="34" y2="218"/><line x1="12" y1="218" x2="12" y2="196"/><text x="37" y="222">X+</text><text x="6" y="192">Z+</text></g>`);return k},
+  out(){return `<figure><figcaption>${title}</figcaption><svg viewBox="0 0 260 230" role="img" aria-label="${title}">${o.join('')}</svg></figure>`}
+ };return k}
+const BLK=[50,40,180,154];
+function pics(f){
+ const t=f.type,top=SV('Top view, looking down Z',['pocket','web'].includes(t)?f.ax==='Y':['surf','stock','angle'].includes(t)?f.ax==='Y':false),side=SV(t==='surf'||t==='stock'?'Side view':'Side view, section through centre');
+ const isBoss=t==='boss'||t==='web'||t==='erect'||((t==='pcd'||t==='p3')&&f.kind==='Boss');
+ switch(t){
+ case 'bore':case 'pocket':{const bore=t==='bore';top.rect(...BLK,'pt');
+  if(bore)top.circ(140,117,52,'hole');else top.rect(108,40,64,154,'hole');
+  top.cross(140,117,'x y').txt(140,214,'Centre'+vl2(f,'x','y'),'x y','middle',0,1);
+  if(bore){top.dim(88,96,192,96,'Diameter'+vl(f,'d'),140,90,'d');[[88,117],[192,117],[140,65],[140,169]].forEach(p=>top.dot(...p))}
+  else{top.dim(108,96,172,96,'Width'+vl(f,'w'),140,90,'w');top.dot(108,117).dot(172,117)}
+  top.axes();
+  side.safe().rect(20,80,70,130,'pt').rect(190,80,50,130,'pt').probe(140,150,'mz').hz(150,'Measure Z'+vl(f,'mz'),'mz');
+  side.mv(146,150,186,150).mv(134,150,94,150).dim(90,66,190,66,(bore?'Diameter':'Width')+vl(f,bore?'d':'w'),140,60,bore?'d':'w');
+  if(has_(f.r))side.txt(140,200,'R+ = fast move to within R of the wall','r','middle');
+  side.axesZ();break}
+ case 'boss':case 'web':{const boss=t==='boss';top.rect(...BLK,'pt base');
+  if(boss)top.circ(140,117,44,'pt');else top.rect(110,40,60,154,'pt');
+  top.cross(140,117,'x y').txt(140,214,'Centre'+vl2(f,'x','y'),'x y','middle',0,1);
+  if(boss){top.dim(96,100,184,100,'Diameter'+vl(f,'d'),140,94,'d');top.circ(76,117,6,'gh','r').circ(204,117,6,'gh','r').circ(140,53,6,'gh','r').circ(140,181,6,'gh','r')}
+  else{top.dim(110,100,170,100,'Width'+vl(f,'w'),140,94,'w');top.circ(88,117,6,'gh','r').circ(192,117,6,'gh','r')}
+  top.axes();
+  const L=boss?96:110,R=boss?184:170;
+  side.safe().rect(20,175,220,35,'pt').rect(L,95,R-L,80,'pt').probe(140,62,'az').hz(62,'Start Z'+vl(f,'az'),'az');
+  side.probe(L-22,140,'mz',1).hz(140,'Measure Z'+vl(f,'mz'),'mz').mv(L-16,140,L-2,140).probe(R+22,140,'mz',1).mv(R+16,140,R+2,140);
+  side.dim(L-22,190,L,190,'R',L-11,186,'r').dim(L,86,R,86,(boss?'Diameter':'Width')+vl(f,boss?'d':'w'),140,80,boss?'d':'w');side.axesZ();break}
+ case 'surf':case 'stock':{const ax=f.ax||(t==='surf'?'X':'Z'),pts=t==='stock'&&has_(f.pts)?String(f.pts).split(';').filter(s=>s.trim()).slice(0,5):[];
+  const P1=t==='stock'?'P1 start':'Start',nomL=(t==='stock'?'Nominal surface':'Nominal surface')+vl(f,'nom');
+  if(ax==='Z'){top.rect(...BLK,'pt').cross(100,90,'sx sy').txt(112,86,P1+vl2(f,'sx','sy'),'sx sy');
+    pts.forEach((p,i)=>top.dot(100+((i+1)%3)*45,130+Math.floor((i+1)/3)*30).txt(108+((i+1)%3)*45,126+Math.floor((i+1)/3)*30,'P'+(i+2)));
+    top.axes();
+    side.safe().rect(20,124,220,86,'pt');if(t==='stock')side.rect(20,108,220,16,'stk').txt(30,120,'Stock',null);
+    side.hz(124,nomL,'nom','nm').probe(100,66,'sz').hz(66,(t==='stock'?'P1 Z (start)':'Start Z')+vl(f,'sz'),'sz').mv(100,74,100,t==='stock'?104:120).axesZ()}
+  else{top.rect(50,40,110,154,'pt');if(t==='stock')top.rect(160,40,14,154,'stk');
+    top.ln(160,34,160,200,'nm','nom').txt(156,34,nomL,'nom','end',0,1).cross(206,117,'sx sy').txt(252,148,P1+vl2(f,'sx','sy'),'sx sy','end',0,1).mv(198,117,t==='stock'?178:166,117);
+    pts.forEach((p,i)=>top.dot(t==='stock'?178:166,60+i*28).txt(186,64+i*28,'P'+(i+2)));top.axes();
+    side.safe().rect(20,70,140,140,'pt');if(t==='stock')side.rect(160,70,14,140,'stk');
+    side.ln(160,60,160,214,'nm','nom').txt(156,58,'Nominal '+ax+vl(f,'nom'),'nom','end',0,1).probe(208,140,'sz').hz(140,(t==='stock'?'P1 Z':'Start Z')+vl(f,'sz'),'sz').mv(200,140,t==='stock'?180:166,140).axesZ()}
+  if(t==='stock'&&pts.length)top.txt(58,226,'Extra points: other two axes',null,'start',0,1);
+  break}
+ case 'icorner':{top.rect(50,40,180,34,'pt').rect(196,40,34,154,'pt').cross(196,74,'cx cy').txt(190,94,'Corner'+vl2(f,'cx','cy'),'cx cy','end');
+  top.cross(100,160,'sx sy').txt(100,186,'Start'+vl2(f,'sx','sy'),'sx sy','middle').mv(100,152,100,80).mv(108,160,190,160);
+  if(has_(f.i))top.dot(140,80,'tp','i').dim(100,57,140,57,'I'+vl(f,'i'),152,61,'i');
+  if(has_(f.j))top.dot(190,120,'tp','j').dim(213,160,213,120,'J',206,144,'j','end');
+  top.axes();
+  side.safe().rect(20,180,220,30,'pt').rect(196,60,44,120,'pt').probe(140,120,'sz').hz(120,'Start Z'+vl(f,'sz'),'sz').mv(146,120,192,120);
+  if(has_(f.z))side.hz(156,'Measure Z'+vl(f,'z'),'z');side.axesZ();break}
+ case 'ecorner':{top.rect(50,100,120,94,'pt').cross(170,100,'cx cy').txt(176,116,'Corner'+vl2(f,'cx','cy'),'cx cy');
+  top.cross(210,56,'sx sy').txt(206,40,'Start'+vl2(f,'sx','sy'),'sx sy','middle').ln(210,56,130,56,'pth').mv(130,56,130,94).ln(210,56,210,150,'pth').mv(210,150,176,150);
+  if(has_(f.i))top.dot(90,94,'tp','i').dim(90,74,130,74,'I',110,70,'i');
+  if(has_(f.j))top.dot(176,180,'tp','j').dim(226,150,226,180,'J',232,170,'j');
+  top.axes();
+  side.safe().rect(20,110,150,100,'pt').probe(210,70,'sz').hz(70,'Start Z'+vl(f,'sz'),'sz');
+  if(has_(f.z))side.hz(150,'Measure Z'+vl(f,'z'),'z').probe(194,150,'z',1).mv(188,150,174,150);side.axesZ();break}
+ case 'irect':case 'erect':{const ext=t==='erect',fc=(f.face||'A14').slice(0,3);
+  top.rect(...BLK,ext?'pt base':'pt');top.rect(70,60,140,110,ext?'pt':'hole');
+  const two={A11:[[210,85],[210,145]],A12:[[105,60],[175,60]],A13:[[70,85],[70,145]],A14:[[105,170],[175,170]]}[fc]||[[105,170],[175,170]];
+  const one={A11:[[140,60],[140,170],[70,115]],A12:[[70,115],[210,115],[140,170]],A13:[[140,60],[140,170],[210,115]],A14:[[70,115],[210,115],[140,60]]}[fc];
+  const edge={A11:[210,60,210,170],A12:[70,60,210,60],A13:[70,60,70,170],A14:[70,170,210,170]}[fc];
+  top.ln(...edge,'fc','face');[...two,...one].forEach(p=>top.dot(...p));
+  top.cross(140,115,'x y').txt(140,136,'Centre'+vl2(f,'x','y'),'x y','middle');
+  top.dim(70,204,210,204,'D (X length)'+vl(f,'dx'),140,222,'dx','middle').dim(224,60,224,170,'E (Y length)'+vl(f,'ey'),250,115,'ey','middle',-90);
+  top.txt(140,32,'Heavy line = face with 2 points',null,'middle',0,1);
+  if(ext){side.safe().rect(20,175,220,35,'pt').rect(70,95,140,80,'pt').probe(140,62,'az').hz(62,'Start Z'+vl(f,'az'),'az').probe(48,140,'mz',1).hz(140,'Measure Z'+vl(f,'mz'),'mz').mv(54,140,68,140)}
+  else{side.safe().rect(20,80,50,130,'pt').rect(210,80,30,130,'pt').probe(140,150,'mz').hz(150,'Measure Z'+vl(f,'mz'),'mz').mv(146,150,206,150).mv(134,150,74,150)}
+  side.dim(70,ext?88:72,210,ext?88:72,'D'+vl(f,'dx'),180,ext?84:66,'dx').axesZ();break}
+ case 'pcd':{const n=Math.min(Math.max(parseInt(f.nb)||4,1),12),a0=isFinite(+f.a)&&has_(f.a)?+f.a:0,R=62;
+  top.rect(...BLK,'pt').circ(140,117,R,'pcd','c').ln(140,117,215,117,'ref');
+  for(let i=0;i<n;i++){const an=(a0+i*360/n)*Math.PI/180,x=140+R*Math.cos(an),y=117-R*Math.sin(an);top.circ(x,y,11,isBoss?'ptb':'hole',i?'':'d')}
+  const an=a0*Math.PI/180;top.ln(140,117,140+R*Math.cos(an),117-R*Math.sin(an),'dl','a');
+  top.cross(140,117,'x y').txt(140,206,'C = PCD'+vl(f,'c'),'c','middle').txt(150,138,'A first angle'+vl(f,'a'),'a');
+  const fx=140+R*Math.cos(an),fy=117-R*Math.sin(an);top.txt(fx+14,fy-12,'D'+vl(f,'d'),'d');
+  top.txt(140,34,`${n} feature${n>1?'s':''} (B)`,'nb','middle',0,1).axes();
+  if(isBoss)side.safe().rect(20,175,220,35,'pt').rect(58,110,44,65,'pt').rect(158,110,44,65,'pt');
+  else side.safe().rect(20,90,220,120,'pt').rect(58,90,44,80,'hole').rect(158,90,44,80,'hole');
+  side.probe(130,62,'az').hz(62,'Start Z'+vl(f,'az'),'az').probe(180,isBoss?150:140,'mz',1).hz(isBoss?150:140,'Measure Z'+vl(f,'mz'),'mz');side.dim(58,isBoss?100:80,102,isBoss?100:80,'D',80,isBoss?94:76,'d').axesZ();break}
+ case 'p3':{const as=['a1','a2','a3'].map((k,i)=>has_(f[k])&&isFinite(+f[k])?+f[k]:[30,150,270][i]),R=56,L=['A','B','C'];
+  top.rect(...BLK,isBoss?'pt base':'pt');top.circ(140,117,R,isBoss?'pt':'hole','d').ln(140,117,226,117,'ref').txt(222,112,'0°',null,'end');
+  as.forEach((a,i)=>{const r=a*Math.PI/180,x=140+R*Math.cos(r),y=117-R*Math.sin(r),k=['a1','a2','a3'][i];top.ln(140,117,x,y,'dl',k).dot(x,y,'tp',k).txt(140+(R+16)*Math.cos(r),117-(R+16)*Math.sin(r)+4,`${L[i]} ${a}°`,k,'middle')});
+  top.cross(140,117,'x y').txt(140,214,'Centre'+vl2(f,'x','y')+'  ·  Diameter'+vl(f,'d'),'x y d','middle',0,1).axes();
+  if(isBoss)side.safe().rect(20,175,220,35,'pt').rect(96,95,88,80,'pt').probe(140,62,'az').hz(62,'Start Z'+vl(f,'az'),'az').probe(74,140,'mz',1).hz(140,'Measure Z'+vl(f,'mz'),'mz');
+  else side.safe().rect(20,80,70,130,'pt').rect(190,80,50,130,'pt').probe(140,150,'az').hz(150,'Start Z (measure height)'+vl(f,'az'),'az').mv(146,150,186,150);
+  side.axesZ();break}
+ case 'angle':{const deg=has_(f.a)&&isFinite(+f.a)?+f.a:70;
+  top.poly([[50,194],[50,40],[150,40],[200,194]],'pt');top.ln(175,117,175,117,'cx');top.cross(175,117,'mid').txt(168,112,'Mid-point'+vl(f,'mid'),'mid','end');
+  top.dot(162,77,'tp','d').dot(188,157,'tp','d').dim(214,77,214,157,'D'+vl(f,'d'),226,117,'d','middle',90);
+  top.ln(200,194,248,194,'ref','a').txt(204,186,'A'+vl(f,'a'),'a').cross(236,60,'sx sy').txt(250,46,'Start'+vl2(f,'sx','sy'),'sx sy','end',0,1).axes();
+  side.safe().rect(20,80,160,130,'pt').probe(208,130,'sz').hz(130,'Start Z'+vl(f,'sz'),'sz').mv(200,130,184,130);
+  if(has_(f.z))side.hz(160,'Measure Z'+vl(f,'z'),'z');side.axesZ();break}
+ case 'f2f':{const p1=S.feats.find(x=>String(x.id)===String(f.p1)),i=S.feats.indexOf(f),p2=S.feats[i-1];
+  const n1=p1?`P1: F${S.feats.indexOf(p1)+1}`:'P1',n2=p2?`P2: F${i}`:'P2';
+  top.rect(...BLK,'pt').circ(84,160,20,'hole','p1').circ(196,74,20,'hole').txt(84,190,n1,'p1','middle').txt(196,108,n2,null,'middle');
+  top.ln(84,160,196,74,'dl','nd na').txt(126,108,'Distance'+vl(f,'nd'),'nd','end').ln(84,160,150,160,'ref','na').txt(112,154,'Angle'+vl(f,'na'),'na');
+  top.dim(84,208,196,208,'X'+vl(f,'nx'),140,222,'nx','middle').dim(240,160,240,74,'Y'+vl(f,'ny'),236,120,'ny','end').axes();
+  side.rect(20,150,110,60,'pt').rect(130,90,110,120,'pt').txt(75,170,n1,'p1','middle').txt(185,110,n2,null,'middle').dim(70,150,70,90,'Z'+vl(f,'nz'),76,124,'nz').axesZ();
+  side.txt(130,40,'Measured, then compared:',null,'middle',0,1).txt(130,56,'no probe moves in this step',null,'middle',0,1);break}
+ }
+ return top.out()+side.out();
+}
+function tolPic(f,o){
+ const s=[];if(!(o.includes('H')||o.includes('M')||o.includes('B')))return '';
+ const d=(k)=>` data-d="${k}"`;
+ let a=`<figure><figcaption>Size tolerance</figcaption><svg viewBox="0 0 260 120" role="img" aria-label="Size tolerance">
+ <line class="dl" x1="10" y1="60" x2="250" y2="60"/><rect class="tol"${d('h')} x="90" y="44" width="80" height="32"/>
+ <line class="cx" x1="130" y1="36" x2="130" y2="84"/><text class="tl" x="130" y="30" text-anchor="middle">Nominal</text>
+ <text class="tl"${d('h')} x="130" y="100" text-anchor="middle">±H${vl(f,'h')}: in tolerance</text>
+ <line class="lim"${d('u')} x1="30" y1="40" x2="30" y2="80"/><line class="lim"${d('u')} x1="230" y1="40" x2="230" y2="80"/>
+ <text class="tl"${d('u')} x="30" y="96" text-anchor="middle">−U</text><text class="tl"${d('u')} x="230" y="96" text-anchor="middle">+U</text>
+ <text class="tl"${d('u')} x="130" y="116" text-anchor="middle">Past U${vl(f,'u')}: no update, stops</text></svg></figure>`;
+ if(o.includes('M'))a+=`<figure><figcaption>True position</figcaption><svg viewBox="0 0 260 120" role="img" aria-label="True position zone">
+ <circle class="tol"${d('m')} cx="52" cy="56" r="34"/><line class="cx" x1="44" y1="56" x2="60" y2="56"/><line class="cx" x1="52" y1="48" x2="52" y2="64"/>
+ <circle class="tp" cx="66" cy="46" r="4"/><line class="dl"${d('m')} x1="18" y1="100" x2="86" y2="100"/><text class="tl"${d('m')} x="52" y="116" text-anchor="middle">M</text>
+ <text class="tl"${d('m')} x="100" y="44">Zone diameter M${vl(f,'m')}</text><text class="tl" x="100" y="64">Dot = measured centre</text>
+ <text class="tl" x="100" y="84">Same as the drawing's ⌀</text></svg></figure>`;
+ if(o.includes('B'))a+=`<figure><figcaption>Angle tolerance</figcaption><svg viewBox="0 0 260 120" role="img" aria-label="Angle tolerance">
+ <line class="dl" x1="40" y1="100" x2="220" y2="100"/><path class="tol"${d('b')} d="M40 100 L200 34 L210 58 Z"/><line class="cx" x1="40" y1="100" x2="206" y2="46"/>
+ <text class="tl"${d('b')} x="40" y="20">±B${vl(f,'b')} degrees about nominal</text></svg></figure>`;
+ return `<div class="dia tolp">${a}</div>`;
+}
+function card(f,i){const t=T[f.type];
+ return `<div class="feat" data-id="${f.id}"><div class="fh"><span class="no">F${i+1}</span><span class="ty">${t.n}</span><span class="cy">P${t.c}</span><input class="nm" data-k="name" value="${esc(f.name)}" placeholder="Name (goes in comment)" aria-label="Feature name">
+ <button class="ic" data-a="up" aria-label="Move up">↑</button><button class="ic" data-a="dn" aria-label="Move down">↓</button><button class="ic" data-a="dup" aria-label="Duplicate">⧉</button><button class="ic" data-a="del" aria-label="Delete">✕</button></div>
+ ${S.job.pics?`<div class="dia fdia">${pics(f)}</div>`:''}<div class="grid">${t.f.map(d=>field(f,d,i)).join('')}</div>${optBlock(f)}</div>`}
+function renderFeats(){$('#feats').innerHTML=S.feats.length?S.feats.map(card).join(''):'<div class="empty">No features yet. Pick a type below and add one.</div>';$('#sampleNote').classList.toggle('hide',!S.sample)}
+function renderJob(){for(const el of $$('[data-j]')){const k=el.dataset.j;if(el.type==='checkbox')el.checked=!!S.job[k];else el.value=S.job[k]??''}vis()}
+function vis(){const j=S.job;$('#wcsPw').classList.toggle('hide',j.wcs!=='G54.1');$('#rptVw').classList.toggle('hide',j.print!=='rpt');$('#rptIw').classList.toggle('hide',j.print!=='rpt');
+ $$('.fo').forEach(e=>e.classList.toggle('hide',j.flag!=='on'));$('#cvw').classList.toggle('hide',j.flag!=='on'||j.act!=='end');$$('.nt').forEach(e=>e.classList.toggle('hide',!j.nth))}
+
+// ---------- generator ----------
+function gen(){
+ const j=S.job,M=[],L=[],dp=j.units==='mm'?3:4;
+ const err=m=>M.push(['err',m]),warn=m=>M.push(['warn',m]);
+ const isN=v=>v!==undefined&&v!==null&&String(v).trim()!==''&&isFinite(Number(v));
+ const has=v=>v!==undefined&&v!==null&&String(v).trim()!=='';
+ const fmt=v=>{let s=Number(v).toFixed(dp).replace(/0+$/,'');if(s==='-0.')s='0.';return s.startsWith('-0.')?s:s};
+ const arg=(l,v)=>l+fmt(v);
+ const vchk=(v,lab)=>{if(!isN(v)||Number(v)%1)return err(`${lab}: needs a whole variable number`);v=+v;
+  if(v<100)err(`${lab} #${v} is a local variable; use a spare common variable`);
+  else if(v<150)err(`${lab} #${v} is in #100–#149, which Inspection Plus uses`);
+  else if(j.print==='rpt'&&v>=156&&v<=186)warn(`${lab} #${v} is in the default Reporter range #156–#186`);
+  else if(v>=500&&v<=529)warn(`${lab} #${v} is near the calibration data block (#500 up with base #111=500)`);
+  else if(v<500)warn(`${lab} #${v} is a non-retained variable; confirm nothing else uses it`)};
+ const F=has(j.feed)?(isN(j.feed)?' F'+fmt(j.feed):(err('Protected move feed is not a number'),'')):'';
+ const prog=String(j.prog).trim();
+ if(!/^\d{1,8}$/.test(prog))err('Program number must be digits only');
+ else if(+prog>=9700&&+prog<=9899)err(`O${prog} clashes with the Renishaw cycles (O97xx–O98xx)`);
+ if(!isN(j.safe))err('Safe Z is required');
+ const tool=String(j.tool).trim().toUpperCase();
+ if(j.tc&&!/^T\d+(\.\d+)?$/.test(tool))err('Probe tool call should look like T20 or T20.1');
+ const flag=j.flag==='on',act=j.act;
+ if(flag){vchk(j.rv,'Result variable');if(act==='end'){vchk(j.cv,'Fail counter');if(String(j.cv)===String(j.rv))err('Result and fail counter variables must differ')}}
+ if(j.nth){vchk(j.nthV,'Every-nth counter');if(!isN(j.nthN)||+j.nthN<2)err('Every n parts needs a number of 2 or more')}
+ if(j.print==='rpt')vchk(j.rptVar,'Reporter Part ID variable');
+ if(j.mode==='2')warn('D2 production mode: positioning is at full feed and unprotected. Only use after prove-out.');
+ if(j.wcs==='G54.1'&&!isN(j.wcsP))err('G54.1 needs a P number');
+ const nm=s=>String(s||'').toUpperCase().replace(/[()]/g,'').replace(/[^A-Z0-9 .\-#/]/g,'').trim();
+ const msgTxt=s=>nm(s).replace(/ /g,'*').slice(0,26);
+ const safe=isN(j.safe)?fmt(j.safe):'?';
+ const wcs=j.wcs==='none'?'':j.wcs==='G54.1'?`G54.1 P${parseInt(j.wcsP)||1} `:j.wcs+' ';
+ const feats=S.feats,idx=Object.fromEntries(feats.map((f,i)=>[f.id,i]));
+ // which features feed a P9834 store
+ const p1of={};feats.forEach((f,i)=>{if(f.type==='f2f'&&has(f.p1)&&idx[f.p1]!==undefined)(p1of[idx[f.p1]]??=[]).push(i)});
+ const ranges=[];feats.forEach((f,i)=>{if(f.type==='f2f'&&idx[f.p1]!==undefined)ranges.push([idx[f.p1],i])});
+ for(const [a,b] of ranges)for(const [c,d] of ranges)if(a!==c&&c>a&&c<b-1)warn(`F${d+1} stores P1 data (F${c+1}) before F${b+1} uses F${a+1}; F${b+1} will compare against the wrong feature`);
+ // header
+ if(j.pct)L.push('%');
+ L.push(`O${prog}${j.name?'('+nm(j.name)+')':''}`);
+ L.push(`(RENISHAW INSPECTION PLUS - MAZATROL TOOL DATA)`);
+ L.push(`(PROVE OUT IN D1 TEST MODE BEFORE PRODUCTION)`);
+ L.push(j.units==='mm'?'G21':'G20');
+ if(j.nth){L.push(`#${j.nthV}=#${j.nthV}+1`,`IF[#${j.nthV}LT${parseInt(j.nthN)||2}]GOTO9999`,`#${j.nthV}=0`)}
+ L.push('G90 G80 G40 G0');
+ if(j.tc)L.push(`${tool} M06`);
+ const first=feats.find(f=>T[f.type].f.some(d=>d[0]==='x'||d[0]==='sx'));
+ const fx=first?(first.x??first.sx):null,fy=first?(first.y??first.sy):null;
+ L.push(`G90 G0 ${wcs}${isN(fx)&&isN(fy)?`X${fmt(fx)} Y${fmt(fy)}`:''}`.trim().replace(/ +/g,' '));
+ L.push(`G0 Z${safe}`);
+ if(j.print==='rpt')L.push(`#${j.rptVar}=${parseInt(j.rptId)||parseInt(prog)||1}`);
+ if(flag&&act==='end')L.push(`#${j.cv}=0`);
+ const W=j.print==='text'?'W1.':j.print==='rpt'?'W1.1':'';
+ L.push(`G65 P9832${j.mode?' D'+j.mode+'.':''}${W?' '+W:''}`);
+ if(!feats.length)L.push('(ADD FEATURES)');
+ let firstPrint=true;
+ feats.forEach((f,i)=>{
+  const t=T[f.type],tag=`F${i+1} ${t.n}`,a=[];let pos=null;
+  const need=(k,lab)=>{if(!isN(f[k])){err(`${tag}: ${lab} is required`);return false}return true};
+  for(const d of t.f)if(d[2]&&!d[4])need(d[0],d[1]);
+  const opt=(L2,k)=>{if(has(f[k])){if(!isN(f[k]))err(`${tag}: ${L2} is not a number`);else a.push([L2,f[k]])}};
+  const startOver=(x,y,z)=>{pos=[x,y,z];if(isN(z)&&isN(j.safe)&&+z>+j.safe)warn(`${tag}: start Z is above safe Z`)};
+  let cyc='G65 P'+t.c;
+  switch(f.type){
+   case 'bore':startOver(f.x,f.y,f.mz);a.push(['D',f.d]);opt('R','r');break;
+   case 'boss':startOver(f.x,f.y,f.az);a.push(['D',f.d],['Z',f.mz]);opt('R','r');if(isN(f.mz)&&isN(f.az)&&+f.mz>=+f.az)warn(`${tag}: measure Z should be below start Z`);break;
+   case 'pocket':startOver(f.x,f.y,f.mz);a.push([f.ax||'X',f.w]);opt('R','r');break;
+   case 'web':startOver(f.x,f.y,f.az);a.push([f.ax||'X',f.w],['Z',f.mz]);opt('R','r');break;
+   case 'surf':startOver(f.sx,f.sy,f.sz);a.push([f.ax||'X',f.nom]);break;
+   case 'icorner':case 'ecorner':startOver(f.sx,f.sy,f.sz);a.push(['X',f.cx],['Y',f.cy]);break;
+   case 'irect':startOver(f.x,f.y,f.mz);a.push(['D',f.dx],['E',f.ey]);break;
+   case 'erect':startOver(f.x,f.y,f.az);a.push(['D',f.dx],['E',f.ey],['Z',f.mz]);opt('R','r');break;
+   case 'pcd':{startOver(f.x,f.y,f.az);a.push(['C',f.c],['D',f.d],[f.kind==='Boss'?'Z':'K',f.mz]);opt('A','a');a.push(['B',(parseInt(f.nb)||1)+'.',1]);opt('R','r');
+    if(j.out==='sub')warn(`${tag}: P9819 nests four levels deep and the manual says it can't run inside another called cycle. Test it called from Mazatrol.`);break}
+   case 'p3':{startOver(f.x,f.y,f.az);a.push(['A',f.a1],['B',f.a2],['C',f.a3],['D',f.d]);if(f.kind==='Boss'){if(need('mz','Measure Z'))a.push(['Z',f.mz])}opt('R','r');
+    if(isN(f.a1)&&isN(f.a2)&&isN(f.a3)){const s=[f.a1,f.a2,f.a3].map(v=>((+v%360)+360)%360).sort((p,q)=>p-q),g=[s[1]-s[0],s[2]-s[1],360-s[2]+s[0]],span=360-Math.max(...g);
+     if(Math.min(g[0],g[1],g[2])<48)warn(`${tag}: points are closer than 48° apart; accuracy drops`);if(span<168)warn(`${tag}: total span ${span.toFixed(0)}° is under the 168° minimum`)}
+    M.push(['ok',`${tag}: manual recommends P9814 where all four points are reachable`]);break}
+   case 'stock':{startOver(f.sx,f.sy,f.sz);const ax=f.ax||'Z';a.push([ax,f.nom]);
+    if(has(f.pts)){const pr={X:['J','K'],Y:['I','K'],Z:['I','J']}[ax],pts=String(f.pts).split(';').map(s=>s.trim()).filter(Boolean);
+     if(pts.length>5)err(`${tag}: maximum of 5 extra points`);
+     pts.slice(0,5).forEach((p,n)=>{const v=p.split(',').map(s=>s.trim());if(v.length!==2||!v.every(isN))err(`${tag}: point ${n+2} should be two numbers, e.g. 4.5,1.0`);else a.push([pr[0],v[0]],[pr[1],v[1]])})}
+    break}
+   case 'angle':startOver(f.sx,f.sy,f.sz);a.push([f.ax||'X',f.mid],['D',f.d]);opt('A','a');opt('Z','z');break;
+   case 'f2f':{const p=idx[f.p1],prev=feats[i-1];
+    if(p===undefined)err(`${tag}: choose the P1 feature`);
+    if(!prev||prev.type==='f2f')err(`${tag}: must follow the P2 measuring feature`);
+    else if(['pocket','web'].includes(prev.type)||(p!==undefined&&['pocket','web'].includes(feats[p].type)))err(`${tag}: P9834 can't be used with the web/pocket cycle`);
+    const md=f.mode||'X distance';
+    if(md==='X distance'){need('nx','Nominal X');a.push(['X',f.nx])}
+    else if(md==='Y distance'){need('ny','Nominal Y');a.push(['Y',f.ny])}
+    else if(md==='X and Y'){need('nx','Nominal X');need('ny','Nominal Y');a.push(['X',f.nx],['Y',f.ny])}
+    else if(md==='Angle and distance'){need('na','Nominal angle');need('nd','Min distance');a.push(['A',f.na],['D',f.nd])}
+    else{need('nz','Nominal Z');a.push(['Z',f.nz])}
+    if(has(f.b)&&!['X and Y','Angle and distance'].includes(md))warn(`${tag}: B angle tolerance only applies to X and Y or angle checks`);break}
+  }
+  if(f.type==='icorner'||f.type==='ecorner'){opt('I','i');opt('J','j');opt('Z','z')}
+  if(f.type==='irect'||f.type==='erect'){if(f.face)a.push(['A',f.face.slice(1,3)+'.',1])}
+  // tolerance options
+  const o=t.o;
+  if(o.includes('B'))opt('B','b');if(o.includes('H'))opt('H','h');if(o.includes('M'))opt('M','m');if(o.includes('U'))opt('U','u');if(o.includes('Q'))opt('Q','q');
+  if(o.includes('E')&&has(f.ee)){vchk(f.ee,`${tag} experience variable`);a.push(['E',parseInt(f.ee)+'.',1])}
+  let tv=null;
+  if(o.includes('T')&&f.upd!=='none'){
+   if(need('tn','Tool number')){let code=f.ts?SUF.indexOf(f.ts)+1:0;if(f.th){if(!code)warn(`${tag}: heavy tool flag needs a suffix letter`);else code+=60}
+    tv=`${parseInt(f.tn)}.${code?String(code).padStart(2,'0'):''}`}
+   if(has(f.ff)&&(!isN(f.ff)||+f.ff<0||+f.ff>1))err(`${tag}: feedback F must be 0 to 1`);
+   if(f.upd==='Direct (T input)'){if(tv)a.push(['T',tv,1]);opt('F','ff');opt('V','vv')}
+   else if(f.upd==='SPC average (P9835)'){need('spm','SPC variable pair');if(isN(f.spm)){vchk(f.spm,`${tag} SPC pair`);vchk(+f.spm+1,`${tag} SPC pair (+1)`)}}
+  }
+  if(o.includes('S')&&f.s){const s=f.s;let sv=null;
+   if(/^G5[4-9]$/.test(s))sv=+s.slice(1)-53;else if(s==='G54.1 Pn'){if(need('sp','G54.1 P number'))sv=100+parseInt(f.sp)}
+   else if(s.startsWith('Active')){sv=7;if(j.out==='main')warn(`${tag}: S7 updates the Mazatrol WPC only when this program is called from a Mazatrol SUBPROGRAM unit with the MEASURE MACRO soft key`)}
+   else if(s.startsWith('External'))sv=0;
+   if(sv!==null)a.push(['S',sv+'.',1]);
+   if(tv&&f.upd==='Direct (T input)')warn(`${tag}: updates both a tool offset and a work offset; check that is intended`)}
+  const hasTol=['h','m','u','b'].some(k=>has(f[k]));
+  if(o.includes('W')&&W){a.push(['W',j.print==='rpt'?`${i+1}.1`:(firstPrint?'2.':'1.'),1]);firstPrint=false}
+  // emit
+  const str=a.map(([l,v,raw])=>raw?l+v:(isN(v)?arg(l,v):l+'?')).join(' ');
+  L.push(`(${tag.toUpperCase()}${f.name?' - '+nm(f.name):''})`);
+  if(pos){L.push(`G65 P9810 X${isN(pos[0])?fmt(pos[0]):'?'} Y${isN(pos[1])?fmt(pos[1]):'?'}${F}`);L.push(`G65 P9810 Z${isN(pos[2])?fmt(pos[2]):'?'}${F}`)}
+  L.push(`${cyc} ${str}`.trim());
+  if(flag&&hasTol)L.push(`#${j.rv}=#148`);
+  if(p1of[i])L.push('G65 P9834 (STORE P1 DATA)');
+  if(f.upd==='SPC average (P9835)'&&tv)L.push(`G65 P9835 T${tv} M${parseInt(f.spm)}.${has(f.spv)?' V'+fmt(f.spv):''}${has(f.spc)?' C'+parseInt(f.spc)+'.':''}${has(f.ff)?' F'+fmt(f.ff):''}`);
+  if(pos)L.push(`G65 P9810 Z${safe}${F}`);
+  if(flag&&hasTol){const n=8001+i;L.push(`IF[#${j.rv}EQ0]GOTO${n}`);
+   if(act==='end')L.push(`#${j.cv}=#${j.cv}+1`);
+   else L.push(`#${act==='alarm'?3000:3006}=1(F${i+1}*${msgTxt(f.name||t.n)}*OUT*OF*TOL)`);
+   L.push(`N${n}`)}
+  if(o.includes('T')&&f.upd!=='none'&&!hasTol&&j.flag==='off')M.push(['ok',`${tag}: no H tolerance set; offset updates run without a size limit (set U as a safety stop)`]);
+ });
+ L.push(`G65 P9833${W?' '+W:''}`);
+ L.push('G91 G28 Z0.','G90');
+ if(flag&&act==='end')L.push(`IF[#${j.cv}EQ0]GOTO9990`,`#3006=1(PART*OUT*OF*TOL*SEE*VAR*${j.cv})`,'N9990');
+ if(j.nth)L.push('N9999');
+ L.push(j.out==='sub'?'M99':'M30');
+ if(j.pct)L.push('%');
+ if(j.out==='sub'&&j.tc)M.push(['ok','Subprogram includes the probe tool change; untick it if the calling program loads the probe']);
+ if(flag)M.push(['ok','Flag-only branches assume #31 is set in O9700. In alarm mode the cycles stop on their own and these lines do nothing useful.']);
+ return {L,M};
+}
+function hl(line){const e=esc(line);
+ if(/^\(.*\)$/.test(line))return `<span class="c">${e}</span>`;
+ return e.replace(/(\(.*?\))/g,'<span class="c">$1</span>').replace(/(G65 P98\d\d)/,'<span class="k">$1</span>').replace(/(#300[06]=1)/,'<span class="x">$1</span>').replace(/\?/g,'<span class="x">?</span>')}
+let last='';
+function out(){const {L,M}=gen();last=L.join('\n');
+ $('#code').innerHTML=L.map(hl).join('\n');
+ $('#oname').textContent='O'+(S.job.prog||'');
+ const ne=M.filter(m=>m[0]==='err').length;
+ $('#ocount').textContent=`${L.length} lines · ${S.feats.length} feature${S.feats.length===1?'':'s'}${ne?` · ${ne} to fix`:''}`;
+ const order={err:0,warn:1,ok:2};M.sort((p,q)=>order[p[0]]-order[q[0]]);
+ $('#msgs').innerHTML=M.map(([l,m])=>`<li class="${l}"><b>${l==='err'?'Fix':l==='warn'?'Check':'Note'}:</b> ${esc(m)}</li>`).join('');
+ save()}
+
+// ---------- events ----------
+$('main').addEventListener('input',e=>{const el=e.target;
+ if(el.dataset.j){S.job[el.dataset.j]=el.type==='checkbox'?el.checked:el.value;vis();if(el.dataset.j==='pics')renderFeats();else if(el.dataset.j==='safe')S.feats.forEach(f=>{const c=document.querySelector(`.feat[data-id="${f.id}"]`);if(c)redraw(c,f)});out();hot(el);return}
+ const c=el.closest('.feat');if(c&&el.dataset.k){const f=S.feats.find(x=>x.id==c.dataset.id);f[el.dataset.k]=el.type==='checkbox'?el.checked:el.value;S.sample=false;
+  if(el.tagName==='SELECT'&&['upd','s','kind'].includes(el.dataset.k)){renderFeats();document.getElementById(el.id)?.focus()}
+  if(el.dataset.k==='name'&&S.feats.some(x=>x.type==='f2f'))refreshP1();
+  redraw(c,f);
+  out()}});
+function redraw(c,f){if(!S.job.pics)return;const d=c.querySelector('.fdia');if(d)d.innerHTML=pics(f);const tp=c.querySelector('.tolp');if(tp)tp.outerHTML=tolPic(f,T[f.type].o);
+ const ae=document.activeElement;if(ae&&c.contains(ae))hot(ae)}
+function hot(el){$$('svg .hot').forEach(e=>e.classList.remove('hot'));if(!el||!el.dataset)return;
+ if(el.dataset.j==='safe'){$$('svg [data-d~="safe"]').forEach(e=>e.classList.add('hot'));return}
+ const k=el.dataset.k,c=el.closest('.feat');if(!k||!c)return;
+ const keys=k==='spm'||k==='spv'||k==='spc'?[]:k==='sp'?['s']:[k];
+ keys.forEach(q=>c.querySelectorAll(`svg [data-d~="${q}"]`).forEach(e=>e.classList.add('hot')))}
+$('main').addEventListener('focusin',e=>hot(e.target));
+$('main').addEventListener('focusout',e=>{if(!e.relatedTarget||!e.relatedTarget.dataset||(!e.relatedTarget.dataset.k&&!e.relatedTarget.dataset.j))hot(null)});
+function refreshP1(){S.feats.forEach((f,i)=>{if(f.type!=='f2f')return;const sel=document.getElementById(`f${f.id}-p1`);if(!sel||sel===document.activeElement)return;
+ sel.innerHTML='<option value="">Choose…</option>'+S.feats.slice(0,i-1).map((p,k)=>`<option value="${p.id}"${String(p.id)===String(f.p1)?' selected':''}>F${k+1} ${esc(p.name||T[p.type].n)}</option>`).join('')})}
+$('#feats').addEventListener('click',e=>{const b=e.target.closest('button[data-a]');if(!b)return;const id=+b.closest('.feat').dataset.id,i=S.feats.findIndex(f=>f.id===id),a=b.dataset.a;
+ if(a==='del')S.feats.splice(i,1);
+ if(a==='up'&&i>0)[S.feats[i-1],S.feats[i]]=[S.feats[i],S.feats[i-1]];
+ if(a==='dn'&&i<S.feats.length-1)[S.feats[i+1],S.feats[i]]=[S.feats[i],S.feats[i+1]];
+ if(a==='dup')S.feats.splice(i+1,0,{...S.feats[i],id:uid++,name:(S.feats[i].name||'')+(S.feats[i].name?' copy':'')});
+ S.sample=false;renderFeats();out();
+ const c=document.querySelector(`.feat[data-id="${a==='dup'?S.feats[i+1].id:id}"]`);if(c&&a!=='del'){c.classList.add('flash');c.querySelector(`[data-a="${a}"]`)?.focus()}});
+$('#addBtn').addEventListener('click',()=>{const f=nf($('#addType').value,{});const t=T[f.type];for(const d of t.f)if(Array.isArray(d[4]))f[d[0]]=d[4][0];
+ S.feats.push(f);S.sample=false;renderFeats();out();const c=document.querySelector(`.feat[data-id="${f.id}"]`);c.classList.add('flash');c.scrollIntoView({block:'nearest',behavior:'smooth'});c.querySelector('.grid input,.grid select')?.focus()});
+$('#newBtn').addEventListener('click',()=>{uid=1;S={job:{...DEF_JOB},feats:[]};renderJob();renderFeats();out()});
+$('#sampleBtn').addEventListener('click',()=>{S=sample();renderJob();renderFeats();out()});
+async function copyText(t,btn,label){try{await navigator.clipboard.writeText(t);btn.textContent='Copied'}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');btn.textContent='Copied'}catch(_){btn.textContent='Select and copy'}ta.remove()}setTimeout(()=>btn.textContent=label,1600)}
+$('#copyBtn').addEventListener('click',e=>copyText(last,e.currentTarget,'Copy program'));
+$('#expBtn').addEventListener('click',e=>{const t=JSON.stringify({job:S.job,feats:S.feats});$('#jobTxt').value=t;copyText(t,e.currentTarget,'Copy job text')});
+$('#impBtn').addEventListener('click',e=>{try{const d=JSON.parse($('#jobTxt').value);if(!d.job||!Array.isArray(d.feats))throw 0;S={job:{...DEF_JOB,...d.job},feats:d.feats};uid=Math.max(0,...S.feats.map(f=>f.id))+1;renderJob();renderFeats();out();e.currentTarget.textContent='Imported'}catch(_){e.currentTarget.textContent='Not valid job text'}setTimeout(()=>e.target.textContent='Import',1800)});
+renderJob();renderFeats();out();
+}
+</script>
+<script>try{if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}</script>
+</body></html>

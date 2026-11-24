@@ -1,0 +1,15 @@
+{
+  "name": "Inspection Plus Probe Program Builder",
+  "short_name": "Probe Builder",
+  "description": "Builds Renishaw Inspection Plus probing programs for the Mazak Smooth control.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2e6f8e",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
