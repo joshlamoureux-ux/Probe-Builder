@@ -177,6 +177,7 @@ pcd:{n:'Holes / bosses on a PCD',c:'9819',f:[['kind','Feature',1,'',['Bore','Bos
 p3:{n:'3-point bore / boss',c:'9823',f:[['kind','Feature',1,'',['Bore','Boss']],['x','Centre X',1],['y','Centre Y',1],['az','Start Z',1,'Bore: measure height. Boss: above top'],['mz','Measure Z (boss)',0],['a1','Angle 1',1],['a2','Angle 2',1],['a3','Angle 3',1],['d','Diameter',1],['r','Clearance / pre-position R',0]],o:'HMUTSQE'},
 stock:{n:'Stock allowance',c:'9820',f:[['ax','Surface axis',1,'',AX3],['sx','P1 X',1],['sy','P1 Y',1],['sz','P1 Z (start)',1],['nom','Nominal surface',1],['pts','Extra points P2–P6',0,'Other two axes: a,b; a,b']],o:'USQ'},
 angle:{n:'Surface angle in XY',c:'9843',f:[['ax','Measure in',1,'',AX2],['sx','Start X',1],['sy','Start Y',1],['sz','Start Z',1],['mid','Surface mid-point',1,'X or Y position'],['d','Spacing D',1],['a','Nominal angle',0,'From X+; default 90° (X) / 0° (Y)'],['z','Measure Z',0]],o:'BQW'},
+surf2:{n:'Two surfaces (distance)',c:'9811 + P9834',f:[['ax','Surface axis',1,'',AX3],['s1x','Surface 1 start X',1],['s1y','Surface 1 start Y',1],['s1z','Surface 1 start Z',1],['n1','Surface 1 nominal',1],['s2x','Surface 2 start X',1],['s2y','Surface 2 start Y',1],['s2z','Surface 2 start Z',1],['n2','Surface 2 nominal',1]],o:'HUTEW'},
 f2f:{n:'Feature to feature',c:'9834',f:[['p1','P1 feature',1,'P2 = the feature just above','P1'],['mode','Check',1,'',['X distance','Y distance','X and Y','Angle and distance','Z distance']],['nx','Nominal X',0],['ny','Nominal Y',0],['nz','Nominal Z',0],['na','Nominal angle',0],['nd','Min distance',0]],o:'HMBUW'}
 };
 const OPT={H:['h','Size tolerance H','± half band'],M:['m','True position M','Zone dia, matches drawing'],U:['u','Upper limit U','No update, stops if past'],B:['b','Angle tolerance B','± degrees'],Q:['q','Overtravel Q','Blank = default'],E:['ee','Experience var E','e.g. 625 → #625']};
@@ -211,6 +212,7 @@ function optBlock(f){
 }
 // ---------- pictures ----------
 const has_=v=>v!==undefined&&v!==null&&String(v).trim()!=='';
+const isN_=v=>has_(v)&&isFinite(Number(v));
 const vl=(f,k)=>has_(f[k])?' = '+f[k]:'';
 const vl2=(f,a,b)=>has_(f[a])||has_(f[b])?` = ${has_(f[a])?f[a]:'?'}, ${has_(f[b])?f[b]:'?'}`:'';
 function SV(title,flip){
@@ -322,6 +324,20 @@ function pics(f){
   top.ln(200,194,248,194,'ref','a').txt(204,186,'A'+vl(f,'a'),'a').cross(236,60,'sx sy').txt(250,46,'Start'+vl2(f,'sx','sy'),'sx sy','end',0,1).axes();
   side.safe().rect(20,80,160,130,'pt').probe(208,130,'sz').hz(130,'Start Z'+vl(f,'sz'),'sz').mv(200,130,184,130);
   if(has_(f.z))side.hz(160,'Measure Z'+vl(f,'z'),'z');side.axesZ();break}
+ case 'surf2':{const ax=f.ax||'Z',dd=isN_(f.n1)&&isN_(f.n2)?String(+(+f.n2-+f.n1).toFixed(4)):'',dl='Distance'+(dd?' = '+dd:''),hz2=has_(f.h)?'  (±H '+f.h+')':'';
+  if(ax==='Z'){top.rect(...BLK,'pt').ln(140,40,140,194,'nm').cross(95,117,'s1x s1y').txt(95,140,'S1 start'+vl2(f,'s1x','s1y'),'s1x s1y','middle',0,1).cross(185,117,'s2x s2y').txt(185,96,'S2 start'+vl2(f,'s2x','s2y'),'s2x s2y','middle',0,1).txt(140,212,'Dashed line = step edge',null,'middle',0,1).axes();
+   side.safe().rect(20,150,120,60,'pt').rect(140,96,100,114,'pt').hz(150,'Surface 1'+vl(f,'n1'),'n1','nm').hz(96,'Surface 2'+vl(f,'n2'),'n2','nm');
+   side.probe(112,120,'s1z').mv(112,126,112,144).probe(200,64,'s2z').mv(200,70,200,90).txt(102,124,'S1 start Z'+vl(f,'s1z'),'s1z','end').txt(190,62,'S2 start Z'+vl(f,'s2z'),'s2z','end');
+   side.dim(250,150,250,96,'',0,0,'n1 n2 h').txt(244,186,dl+hz2,'n1 n2 h','end').axesZ()}
+  else if(ax==='X'){top.rect(50,40,50,154,'pt').rect(100,110,70,84,'pt').ln(100,34,100,200,'nm','n1').ln(170,104,170,200,'nm','n2');
+   top.cross(132,76,'s1x s1y').mv(124,76,106,76).txt(252,64,'S1 start'+vl2(f,'s1x','s1y'),'s1x s1y','end').cross(206,152,'s2x s2y').mv(198,152,176,152).txt(252,136,'S2 start'+vl2(f,'s2x','s2y'),'s2x s2y','end');
+   top.txt(96,34,'Surface 1'+vl(f,'n1'),'n1','end',0,1).txt(166,126,'Surface 2'+vl(f,'n2'),'n2','end').dim(100,206,170,206,'',0,0,'n1 n2 h').txt(135,222,dl+hz2,'n1 n2 h','middle').axes()}
+  else{top.rect(50,110,80,84,'pt').rect(130,160,100,34,'pt').ln(44,110,136,110,'nm','n1').ln(124,160,236,160,'nm','n2');
+   top.cross(90,70,'s1x s1y').mv(90,78,90,104).txt(100,62,'S1 start'+vl2(f,'s1x','s1y'),'s1x s1y').cross(200,120,'s2x s2y').mv(200,128,200,154).txt(252,104,'S2 start'+vl2(f,'s2x','s2y'),'s2x s2y','end');
+   top.txt(56,130,'Surface 1'+vl(f,'n1'),'n1').txt(136,182,'Surface 2'+vl(f,'n2'),'n2').dim(244,110,244,160,'',0,0,'n1 n2 h').txt(140,216,dl+hz2,'n1 n2 h','middle').axes()}
+  if(ax!=='Z'){side.safe().rect(20,70,90,140,'pt').rect(110,130,80,80,'pt').ln(110,60,110,214,'nm','n1').ln(190,120,190,214,'nm','n2');
+   side.probe(140,100,'s1z').mv(132,100,116,100).hz(100,'S1 start Z'+vl(f,'s1z'),'s1z').probe(220,166,'s2z').mv(212,166,196,166).hz(166,'S2 start Z'+vl(f,'s2z'),'s2z').axesZ()}
+  break}
  case 'f2f':{const p1=S.feats.find(x=>String(x.id)===String(f.p1)),i=S.feats.indexOf(f),p2=S.feats[i-1];
   const n1=p1?`P1: F${S.feats.indexOf(p1)+1}`:'P1',n2=p2?`P2: F${i}`:'P2';
   top.rect(...BLK,'pt').circ(84,160,20,'hole','p1').circ(196,74,20,'hole').txt(84,190,n1,'p1','middle').txt(196,108,n2,null,'middle');
@@ -396,6 +412,7 @@ function gen(){
  // which features feed a P9834 store
  const p1of={};feats.forEach((f,i)=>{if(f.type==='f2f'&&has(f.p1)&&idx[f.p1]!==undefined)(p1of[idx[f.p1]]??=[]).push(i)});
  const ranges=[];feats.forEach((f,i)=>{if(f.type==='f2f'&&idx[f.p1]!==undefined)ranges.push([idx[f.p1],i])});
+ for(const [a,b] of ranges)feats.forEach((g,c)=>{if(g.type==='surf2'&&c>a&&c<b)warn(`F${c+1} (two surfaces) sits between F${a+1} and the check in F${b+1}; it overwrites the stored P1 data`)});
  for(const [a,b] of ranges)for(const [c,d] of ranges)if(a!==c&&c>a&&c<b-1)warn(`F${d+1} stores P1 data (F${c+1}) before F${b+1} uses F${a+1}; F${b+1} will compare against the wrong feature`);
  // header
  if(j.pct)L.push('%');
@@ -406,8 +423,8 @@ function gen(){
  if(j.nth){L.push(`#${j.nthV}=#${j.nthV}+1`,`IF[#${j.nthV}LT${parseInt(j.nthN)||2}]GOTO9999`,`#${j.nthV}=0`)}
  L.push('G90 G80 G40 G0');
  if(j.tc)L.push(`${tool} M06`);
- const first=feats.find(f=>T[f.type].f.some(d=>d[0]==='x'||d[0]==='sx'));
- const fx=first?(first.x??first.sx):null,fy=first?(first.y??first.sy):null;
+ const first=feats.find(f=>T[f.type].f.some(d=>['x','sx','s1x'].includes(d[0])));
+ const fx=first?(first.x??first.sx??first.s1x):null,fy=first?(first.y??first.sy??first.s1y):null;
  L.push(`G90 G0 ${wcs}${isN(fx)&&isN(fy)?`X${fmt(fx)} Y${fmt(fy)}`:''}`.trim().replace(/ +/g,' '));
  L.push(`G0 Z${safe}`);
  if(j.print==='rpt')L.push(`#${j.rptVar}=${parseInt(j.rptId)||parseInt(prog)||1}`);
@@ -422,7 +439,7 @@ function gen(){
   for(const d of t.f)if(d[2]&&!d[4])need(d[0],d[1]);
   const opt=(L2,k)=>{if(has(f[k])){if(!isN(f[k]))err(`${tag}: ${L2} is not a number`);else a.push([L2,f[k]])}};
   const startOver=(x,y,z)=>{pos=[x,y,z];if(isN(z)&&isN(j.safe)&&+z>+j.safe)warn(`${tag}: start Z is above safe Z`)};
-  let cyc='G65 P'+t.c;
+  let cyc='G65 P'+t.c,pre=[],retract=false;
   switch(f.type){
    case 'bore':startOver(f.x,f.y,f.mz);a.push(['D',f.d]);opt('R','r');break;
    case 'boss':startOver(f.x,f.y,f.az);a.push(['D',f.d],['Z',f.mz]);opt('R','r');if(isN(f.mz)&&isN(f.az)&&+f.mz>=+f.az)warn(`${tag}: measure Z should be below start Z`);break;
@@ -444,9 +461,18 @@ function gen(){
      pts.slice(0,5).forEach((p,n)=>{const v=p.split(',').map(s=>s.trim());if(v.length!==2||!v.every(isN))err(`${tag}: point ${n+2} should be two numbers, e.g. 4.5,1.0`);else a.push([pr[0],v[0]],[pr[1],v[1]])})}
     break}
    case 'angle':startOver(f.sx,f.sy,f.sz);a.push([f.ax||'X',f.mid],['D',f.d]);opt('A','a');opt('Z','z');break;
+   case 'surf2':{const ax=f.ax||'Z',P=v=>isN(v)?fmt(v):'?';cyc='G65 P9834';
+    [['s1z','Surface 1'],['s2z','Surface 2']].forEach(([k,n])=>{if(isN(f[k])&&isN(j.safe)&&+f[k]>+j.safe)warn(`${tag}: ${n} start Z is above safe Z`)});
+    pre=['(SURFACE 1)',`G65 P9810 X${P(f.s1x)} Y${P(f.s1y)}${F}`,`G65 P9810 Z${P(f.s1z)}${F}`,`G65 P9811 ${ax}${P(f.n1)}`,'G65 P9834 (STORE SURFACE 1)',`G65 P9810 Z${safe}${F}`,
+     '(SURFACE 2)',`G65 P9810 X${P(f.s2x)} Y${P(f.s2y)}${F}`,`G65 P9810 Z${P(f.s2z)}${F}`,`G65 P9811 ${ax}${P(f.n2)}`];
+    retract=true;
+    if(isN(f.n1)&&isN(f.n2)){const dd=+f.n2-+f.n1;if(Math.abs(dd)<1e-9)err(`${tag}: the two nominals are the same, so there is no distance to check`);a.push([ax,dd]);pre.push(`(NOMINAL DISTANCE ${fmt(Math.abs(dd))})`)}else a.push([ax,'?',1]);
+    if(f.upd==='SPC average (P9835)')err(`${tag}: SPC averaging isn't available on P9834; use a direct T update`);
+    break}
    case 'f2f':{const p=idx[f.p1],prev=feats[i-1];
     if(p===undefined)err(`${tag}: choose the P1 feature`);
-    if(!prev||prev.type==='f2f')err(`${tag}: must follow the P2 measuring feature`);
+    if(!prev||prev.type==='f2f'||prev.type==='surf2')err(`${tag}: must follow a single measuring feature (P2), not a feature-to-feature or two-surface check`);
+    if(p!==undefined&&feats[p].type==='surf2')err(`${tag}: a two-surface check can't be used as P1`);
     else if(['pocket','web'].includes(prev.type)||(p!==undefined&&['pocket','web'].includes(feats[p].type)))err(`${tag}: P9834 can't be used with the web/pocket cycle`);
     const md=f.mode||'X distance';
     if(md==='X distance'){need('nx','Nominal X');a.push(['X',f.nx])}
@@ -480,13 +506,14 @@ function gen(){
   if(o.includes('W')&&W){a.push(['W',j.print==='rpt'?`${i+1}.1`:(firstPrint?'2.':'1.'),1]);firstPrint=false}
   // emit
   const str=a.map(([l,v,raw])=>raw?l+v:(isN(v)?arg(l,v):l+'?')).join(' ');
-  L.push(`(${tag.toUpperCase()}${f.name?' - '+nm(f.name):''})`);
+  L.push(`(${tag.toUpperCase().replace(/[()]/g,'')}${f.name?' - '+nm(f.name):''})`);
+  L.push(...pre);
   if(pos){L.push(`G65 P9810 X${isN(pos[0])?fmt(pos[0]):'?'} Y${isN(pos[1])?fmt(pos[1]):'?'}${F}`);L.push(`G65 P9810 Z${isN(pos[2])?fmt(pos[2]):'?'}${F}`)}
   L.push(`${cyc} ${str}`.trim());
   if(flag&&hasTol)L.push(`#${j.rv}=#148`);
   if(p1of[i])L.push('G65 P9834 (STORE P1 DATA)');
   if(f.upd==='SPC average (P9835)'&&tv)L.push(`G65 P9835 T${tv} M${parseInt(f.spm)}.${has(f.spv)?' V'+fmt(f.spv):''}${has(f.spc)?' C'+parseInt(f.spc)+'.':''}${has(f.ff)?' F'+fmt(f.ff):''}`);
-  if(pos)L.push(`G65 P9810 Z${safe}${F}`);
+  if(pos||retract)L.push(`G65 P9810 Z${safe}${F}`);
   if(flag&&hasTol){const n=8001+i;L.push(`IF[#${j.rv}EQ0]GOTO${n}`);
    if(act==='end')L.push(`#${j.cv}=#${j.cv}+1`);
    else L.push(`#${act==='alarm'?3000:3006}=1(F${i+1}*${msgTxt(f.name||t.n)}*OUT*OF*TOL)`);
