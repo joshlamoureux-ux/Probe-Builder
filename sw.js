@@ -1,5 +1,5 @@
 // Offline support: cache the app shell, keep it fresh when online.
-const CACHE = 'probe-builder-v2';
+const CACHE = 'probe-builder-v3';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

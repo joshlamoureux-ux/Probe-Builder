@@ -86,6 +86,13 @@ svg g.hot line,svg g.hot rect,svg g.hot circle{stroke:var(--red)!important}svg .
 .toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:6px 6px 6px 16px;border-radius:6px;display:flex;gap:12px;align-items:center;z-index:20;max-width:calc(100vw - 32px);box-shadow:0 6px 20px rgb(0 0 0/.25)}
 .toast button{background:transparent;color:var(--bg);border-color:var(--bg)}
 .trash{margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)}.trash b{display:block;font-size:13px;font-weight:500;color:var(--mute);margin-bottom:4px}
+.lt{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:30px}
+.hb{flex:none;min-height:30px;min-width:30px;width:30px;padding:0;border-radius:50%;font:600 14px Inter,sans-serif;background:transparent;color:var(--slate);border:1.5px solid var(--slate);position:relative}
+.hb::after{content:"";position:absolute;inset:-7px}
+.hb[aria-expanded=true]{background:var(--slate);color:var(--bg)}
+.chk .hb{margin-left:auto}
+.fld:has(.help){grid-column:1/-1}.grid>.help{grid-column:1/-1}
+.help{margin:4px 0 2px;padding:8px 10px;background:var(--panel);border-left:3px solid var(--slate);border-radius:0 4px 4px 0;color:var(--ink);font-size:14px;line-height:1.45}
 .empty{padding:22px;border:1px dashed var(--line);border-radius:6px;color:var(--mute)}
 .hide{display:none!important}
 @media(prefers-reduced-motion:no-preference){.flash{animation:fl .6s}@keyframes fl{from{background:var(--line)}}}
@@ -200,11 +207,102 @@ const saveTR=()=>{try{localStorage.setItem('ipb1-trash',JSON.stringify(TR))}catc
 
 $('#addType').innerHTML=Object.entries(T).map(([k,t])=>`<option value="${k}">${t.n} (P${t.c})</option>`).join('');
 
+// ---------- help text ----------
+const HELP={
+ 'job.prog':'Program number to save it under on the control. Don’t use 9700–9899; the Renishaw cycles live there.',
+ 'job.name':'Goes into the program comment. Part number and operation work well, e.g. 12345 OP20.',
+ 'job.units':'Must match the drawing values you type. Inch writes G20, metric writes G21. Every number on this page is in these units.',
+ 'job.out':'Standalone runs on its own and ends with M30. Subprogram ends with M99, for calling from another program or a Mazatrol SUBPROGRAM unit.',
+ 'job.tool':'The probe’s tool call exactly as your programs write it, e.g. T20 or T20.1.',
+ 'job.tc':'Writes the probe tool change. Untick it if the program that calls this one already has the probe loaded.',
+ 'job.wcs':'The work offset all positions on this page are measured from. Use the same one the part is machined in.',
+ 'job.wcsP':'The number after G54.1 P, e.g. 48 for G54.1 P48.',
+ 'job.safe':'Absolute Z where the probe can travel anywhere in X and Y without hitting clamps, the fixture or the part. Every feature starts and finishes here. When unsure, go higher.',
+ 'job.feed':'Feed for the protected positioning moves. Leave blank to use the optimised feed set when the probe was installed.',
+ 'job.mode':'Protected: normal, collision-protected moves. D1 test: 50% positioning speed and a stop before every measuring move; use it for the first run of every new program. D2: fastest, no collision protection; only after the program is proven.',
+ 'job.print':'None: no report. Text print: results go to the control’s print file. Reporter: results go to the Renishaw Reporter app.',
+ 'job.rptVar':'The variable the Reporter app reads the part ID from. Default is #156.',
+ 'job.rptId':'ID number the results are tagged with in Reporter. Blank uses the program number.',
+ 'job.pct':'Adds % at the start and end, which most transfer software expects. Untick if your control or DNC doesn’t want it.',
+ 'job.pics':'Shows the drawings on each feature. Untick for a compact view.',
+ 'job.flag':'Alarm mode: a bad feature stops the machine with an alarm. Flag-only: the cycle carries on and this program decides what to do; only works once #31 is set in O9700.',
+ 'job.act':'What happens after a bad feature in flag-only mode. The probe always goes back to safe Z first. “Count it” finishes all features, then stops if any were bad.',
+ 'job.rv':'A spare common variable that holds the result while the probe retracts. Nothing else may use it.',
+ 'job.cv':'A spare common variable that counts bad features until the end of the program. Nothing else may use it.',
+ 'job.nth':'Skip the probing on most parts and inspect one part in every n.',
+ 'job.nthN':'Inspect one part in this many. 5 means every fifth part.',
+ 'job.nthV':'A spare retained variable (#500 up) that counts parts between inspections. Set it to n−1 to inspect the next part.',
+ x:'Centre position of the feature from the drawing, in the work offset.',y:'Centre position of the feature from the drawing, in the work offset.',
+ mz:'The Z height where the stylus ball touches. Pick a height on the straight part of the wall, clear of chamfers, radii and the bottom.',
+ az:'A Z height above the top of the feature. The probe arrives here, then the cycle moves out, down to Measure Z, and in to touch.',
+ d:'Nominal diameter from the drawing.',w:'Nominal width from the drawing.',
+ r:'Optional. The probe moves quickly to within this distance of the wall, then measures slowly. Leave blank if unsure.',
+ ax:'Which axis the probe moves along to touch: Z for a top face, X or Y for a side wall.',
+ sx:'Where the probe is placed before it measures. It moves straight from here toward the surface, so pick a point clear of the surface with nothing in the way.',
+ sy:'Where the probe is placed before it measures. It moves straight from here toward the surface, so pick a point clear of the surface with nothing in the way.',
+ sz:'Z height of the start position. For a side wall this is also the measuring height.',
+ nom:'Where the surface should be, from the drawing, in the work offset.',
+ cx:'Nominal corner position from the drawing.',cy:'Nominal corner position from the drawing.',
+ i:'Optional. For a corner that isn’t 90°: how far along the first wall to take a second touch, so its angle can be measured.',
+ j:'Optional. For a corner that isn’t 90°: how far along the second wall to take a second touch.',
+ z:'Optional measuring height. Use it when the start point has to be above clamps; the probe drops to this height to measure.',
+ dx:'Nominal length of the rectangle in X.',ey:'Nominal length of the rectangle in Y.',
+ face:'Which face gets two touches so the rectangle’s angle can be measured. Blank uses the bottom face.',
+ kind:'Bore = hole. Boss = pin or post.',
+ c:'Pitch circle diameter from the drawing.',nb:'How many holes or bosses are on the circle. They’re treated as equally spaced.',
+ a:'Angle from X+ (3 o’clock), counter-clockwise.',
+ a1:'Angle of this touch point from X+ (3 o’clock), counter-clockwise. Keep the points at least 48° apart and spanning 168° or more.',
+ pts:'Up to 5 more points on the same surface, as pairs of the other two axes, split by semicolons. For a Z face: 2.5,1.0; 4.0,1.0',
+ mid:'Where the middle of the angled surface should be: its X position when measuring in X, its Y position when measuring in Y.',
+ p1:'The first feature to compare from. P2 is always the feature directly above this card; use the arrows to reorder.',
+ mode:'What to compare between P1 and P2: a distance in X, Y or Z, both X and Y, or the angle and straight-line distance.',
+ nx:'Nominal distance from P1 to P2 in X, with its sign (P2 minus P1).',ny:'Nominal distance from P1 to P2 in Y, with its sign (P2 minus P1).',nz:'Nominal distance from P1 to P2 in Z, with its sign (P2 minus P1).',
+ na:'Nominal angle of the line from P1 to P2, from X+ counter-clockwise.',nd:'Nominal straight-line distance between P1 and P2.',
+ s1x:'Start position for surface 1. The probe moves straight from here toward the surface.',s1y:'Start position for surface 1. The probe moves straight from here toward the surface.',s1z:'Z height of the surface 1 start position.',
+ s2x:'Start position for surface 2. The probe moves straight from here toward the surface.',s2y:'Start position for surface 2. The probe moves straight from here toward the surface.',s2z:'Z height of the surface 2 start position.',
+ n1:'Where surface 1 should be, from the drawing.',n2:'Where surface 2 should be, from the drawing. The distance checked is surface 2 minus surface 1.',
+ h:'Size tolerance as a ± value. For 1.000 ±0.0005 enter 0.0005. Outside this the feature is out of tolerance.',
+ m:'True position tolerance: the diameter of the zone, the same number as the ⌀ in the drawing’s position callout.',
+ u:'Safety limit. If the error is bigger than this, nothing is updated and the cycle stops. Catches broken tools or the wrong part. Set it well outside H.',
+ b:'Angle tolerance in ± degrees.',
+ q:'How far past the expected surface the probe will keep looking before it alarms. Leave blank for the default.',
+ ee:'Optional. A spare variable holding a fixed correction (for example, from comparing with the CMM) that is added to the result. Enter the number, e.g. 625 for #625.',
+ s:'Work offset to correct from this measurement, e.g. set G54 from a bore centre. Leave blank for no change. “Active Mazatrol WPC” only works when called from Mazatrol with the MEASURE MACRO key.',
+ sp:'The number after G54.1 P.',
+ upd:'None: inspect only. Direct: correct the tool that cut this feature by the measured error. SPC: average several parts before correcting.',
+ tn:'Tool number of the cutting tool that made this feature, not the probe.',
+ ts:'The suffix letter of that tool’s Mazatrol tool data entry, as shown on the tool data page. Blank if it has none. The page converts it: A = .01, B = .02 … so 20B is written T20.02.',
+ th:'Tick only if that tool is registered as a heavy tool. Adds 60 to the suffix code, so heavy 20B becomes T20.62.',
+ ff:'How much of the measured error to apply, 0 to 1. Blank = 1 (all of it). 0.5 corrects half, which steadies a process that varies part to part.',
+ vv:'Dead zone around nominal. If the error is within ±V, the offset is left alone. Set it a bit above the measuring scatter and well inside H.',
+ spm:'Two spare variables, this one and the next, that hold the running average. Nothing else may use them.',
+ spv:'Control limit: the averaged error must be past this before the offset is updated.',
+ spc:'How many readings in a row must be outside the limit before an update. Blank = 3.'
+};
+const HELP_T={
+ bore:{r:'Optional. The probe moves quickly to within R of the bore wall, then measures slowly. Leave blank if unsure.',mz:'The Z height inside the bore where the ball touches. The probe goes straight down the middle to here, so it must be above the bottom and clear of chips.'},
+ pocket:{r:'Optional. The probe moves quickly to within R of each wall, then measures slowly.',mz:'The Z height inside the pocket where the ball touches. The probe goes straight down the middle to here.',ax:'Which way the width runs: X measures the left and right walls, Y the front and back walls.'},
+ boss:{r:'How far outside the wall the probe drops down beside the boss. Make sure that clears anything nearby. Blank = 0.2 in / 5 mm.'},
+ web:{r:'How far outside each wall the probe drops down. Make sure that clears anything nearby.',ax:'Which way the width runs: X measures the left and right faces, Y the front and back faces.'},
+ erect:{r:'How far outside each wall the probe drops down.'},
+ pcd:{az:'A Z height above the part. The probe moves between features at this height.',mz:'Height where the ball touches: inside each hole for bores, beside each boss for bosses.',d:'Nominal diameter of each hole or boss.'},
+ p3:{az:'For a bore: the measuring height inside it. For a boss: a height above the top.',mz:'For a boss: the Z height beside it where the ball touches.',d:'Nominal diameter from the drawing.',r:'Optional. Clearance or fast pre-position distance, as for the 4-point cycles.'},
+ icorner:{sx:'Start point inside the corner, clear of both walls. The probe moves straight from here to the first wall, then to the second.',sy:'Start point inside the corner, clear of both walls.',sz:'Z height of the start point, and the measuring height unless Measure Z is set.'},
+ ecorner:{sx:'Start point outside the corner, off its diagonal and clear of both faces.',sy:'Start point outside the corner, off its diagonal and clear of both faces.',sz:'Z height of the start point. Set it above the part and fill in Measure Z, or set it at the measuring height.'},
+ stock:{sx:'P1: the first point to check. The probe starts here and moves toward the surface.',sy:'P1: the first point to check.',sz:'Z height of the P1 start position.',nom:'Where the finished surface should be. The cycle reports how much stock is left above it.',ax:'The axis the probe moves along to touch: Z for a top face, X or Y for a side wall.'},
+ angle:{d:'Distance between the two touch points along the surface. Wider spacing gives a more accurate angle.',a:'Nominal angle of the surface from X+, counter-clockwise. Blank = 90° when measuring in X, 0° in Y.',ax:'The direction the probe moves to touch the angled face.'},
+ surf2:{ax:'The axis both surfaces are measured in. Z for step heights, X or Y for shoulder lengths and wall-to-wall distances.'},
+ surf:{sz:'Z height of the start position. For a Z face it must be above the face; for a side wall it is the measuring height.'}
+};
+['a2','a3'].forEach(k=>HELP[k]=HELP.a1);
+const helpFor=(k,type)=>(type&&HELP_T[type]&&HELP_T[type][k])||HELP[k]||'';
+const hb=(k,type,l)=>helpFor(k,type)?`<button type="button" class="hb" data-h="${k}"${type?` data-ht="${type}"`:''} aria-expanded="false" aria-label="Help: ${esc(String(l).replace(/<[^>]+>/g,''))}">?</button>`:'';
+
 function field(f,[k,l,req,hint,opts],i){
  const v=f[k]??'',id=`f${f.id}-${k}`;
- if(opts==='P1'){const prev=S.feats.slice(0,i-1);return `<label class="fld" for="${id}"><b>${l}</b><select id="${id}" data-k="${k}"><option value="">Choose…</option>${prev.map((p,j)=>`<option value="${p.id}"${String(p.id)===String(v)?' selected':''}>F${j+1} ${esc(p.name||T[p.type].n)}</option>`).join('')}</select><i>${hint}</i></label>`}
- if(opts)return `<label class="fld" for="${id}"><b>${l}</b><select id="${id}" data-k="${k}">${opts.map(o=>`<option${o===v?' selected':''}>${o}</option>`).join('')}</select>${hint?`<i>${hint}</i>`:''}</label>`;
- return `<label class="fld" for="${id}"><b>${l}${req?'':''}</b><input id="${id}" data-k="${k}" inputmode="decimal" value="${esc(v)}">${hint?`<i>${hint}</i>`:''}</label>`;
+ if(opts==='P1'){const prev=S.feats.slice(0,i-1);return `<label class="fld" for="${id}"><span class="lt"><b>${l}</b>${hb(k,f.type,l)}</span><select id="${id}" data-k="${k}"><option value="">Choose…</option>${prev.map((p,j)=>`<option value="${p.id}"${String(p.id)===String(v)?' selected':''}>F${j+1} ${esc(p.name||T[p.type].n)}</option>`).join('')}</select><i>${hint}</i></label>`}
+ if(opts)return `<label class="fld" for="${id}"><span class="lt"><b>${l}</b>${hb(k,f.type,l)}</span><select id="${id}" data-k="${k}">${opts.map(o=>`<option${o===v?' selected':''}>${o}</option>`).join('')}</select>${hint?`<i>${hint}</i>`:''}</label>`;
+ return `<label class="fld" for="${id}"><span class="lt"><b>${l}</b>${hb(k,f.type,l)}</span><input id="${id}" data-k="${k}" inputmode="decimal" value="${esc(v)}">${hint?`<i>${hint}</i>`:''}</label>`;
 }
 function optBlock(f){
  const t=T[f.type],o=t.o,h=[];
@@ -212,7 +310,7 @@ function optBlock(f){
  if(o.includes('S'))h.push(field(f,['s','Update work offset S',0,'',['','G54','G55','G56','G57','G58','G59','G54.1 Pn','Active Mazatrol WPC (S7)','External (S0)']]),f.s==='G54.1 Pn'?field(f,['sp','G54.1 P number',1]):'');
  if(o.includes('T')){h.push(field(f,['upd','Tool offset update',0,'',['none','Direct (T input)','SPC average (P9835)']]));
   if(f.upd!=='none'){h.push(field(f,['tn','Tool number',1]),field(f,['ts','Suffix',0,'Tool data letter',['',...SUF]]),
-   `<label class="fld chk"><input type="checkbox" data-k="th" ${f.th?'checked':''}><b>Heavy tool</b></label>`,field(f,['ff','Feedback F',0,'0–1, blank = 1']));
+   `<label class="fld chk"><input type="checkbox" data-k="th" ${f.th?'checked':''}><b>Heavy tool</b>${hb('th',f.type,'Heavy tool')}</label>`,field(f,['ff','Feedback F',0,'0–1, blank = 1']));
    if(f.upd==='Direct (T input)')h.push(field(f,['vv','Null band V',0,'No update inside ±V']));
    else h.push(field(f,['spm','SPC variable pair M',1,'Uses #m and #m+1']),field(f,['spv','Control limit V',0]),field(f,['spc','Out-of-limit count C',0,'Blank = 3']));}}
  const open=['h','m','u','b','q','ee','s','sp'].some(k=>f[k])||f.upd!=='none';
@@ -582,6 +680,12 @@ function replaceJob(next,why){const prev=S,n=S.feats.length;for(let i=n-1;i>=0;i
  if(n)toast(`${why}: ${n} feature${n>1?'s':''} moved to Recently deleted`,()=>{TR.splice(0,n);saveTR();S=prev;uid=Math.max(uid,...S.feats.map(f=>f.id+1));renderJob();renderFeats();renderTrash();out()})}
 $('#restoreBtn').addEventListener('click',()=>restore(+$('#trashSel').value));
 $('#clearTrash').addEventListener('click',()=>{const old=TR;TR=[];saveTR();renderTrash();toast('Deleted list cleared',()=>{TR=old;saveTR();renderTrash()})});
+for(const el of $$('[data-j]')){const lab=el.closest('label');if(!lab)continue;const b=lab.querySelector('b'),k='job.'+el.dataset.j;if(!HELP[k]||lab.querySelector('.hb'))continue;
+ if(el.type==='checkbox')b.insertAdjacentHTML('afterend',hb(k,'',b.textContent));else{const w=document.createElement('span');w.className='lt';b.replaceWith(w);w.append(b);w.insertAdjacentHTML('beforeend',hb(k,'',b.textContent))}}
+document.addEventListener('click',e=>{const b=e.target.closest('.hb');if(!b)return;e.preventDefault();const fld=b.closest('.fld');let p=fld.querySelector('.help')||(fld.nextElementSibling&&fld.nextElementSibling.classList.contains('help')?fld.nextElementSibling:null);
+ if(p){p.remove();b.setAttribute('aria-expanded','false');return}
+ p=document.createElement('p');p.className='help';p.id='h'+Math.random().toString(36).slice(2,8);p.textContent=helpFor(b.dataset.h,b.dataset.ht);
+ const ctl=fld.querySelector('input:not([type=checkbox]),select');if(ctl)ctl.after(p);else fld.after(p);b.setAttribute('aria-expanded','true');b.setAttribute('aria-controls',p.id)});
 function refreshP1(){S.feats.forEach((f,i)=>{if(f.type!=='f2f')return;const sel=document.getElementById(`f${f.id}-p1`);if(!sel||sel===document.activeElement)return;
  sel.innerHTML='<option value="">Choose…</option>'+S.feats.slice(0,i-1).map((p,k)=>`<option value="${p.id}"${String(p.id)===String(f.p1)?' selected':''}>F${k+1} ${esc(p.name||T[p.type].n)}</option>`).join('')})}
 $('#feats').addEventListener('click',e=>{const b=e.target.closest('button[data-a]');if(!b)return;const id=+b.closest('.feat').dataset.id,i=S.feats.findIndex(f=>f.id===id),a=b.dataset.a;
